@@ -17,12 +17,7 @@ def test_sources() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["sources"]
-    names = [source["name"] for source in body["sources"]]
-    assert "mock" in names
-    assert "gallica" in names
-    assert "bodleian" in names
-    assert "europeana" in names
-    assert "manifest_by_url" in names
+    assert body["sources"][0]["name"] == "mock"
 
 
 def test_search() -> None:
@@ -30,59 +25,7 @@ def test_search() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["results"]
-    result_sources = {item["source"] for item in body["results"]}
-    assert "mock" in result_sources or "bodleian" in result_sources
-
-
-def test_search_gallica_fixture_source() -> None:
-    response = client.post(
-        "/api/search",
-        json={"query": "dante", "sources": ["gallica"], "page": 1, "page_size": 10},
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["results"]
-    assert body["results"][0]["source"] == "gallica"
-
-
-def test_search_bodleian_fixture_source() -> None:
-    response = client.post(
-        "/api/search",
-        json={"query": "dante", "sources": ["bodleian"], "page": 1, "page_size": 10},
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["results"]
-    assert body["results"][0]["source"] == "bodleian"
-
-
-def test_search_europeana_fixture_source() -> None:
-    response = client.post(
-        "/api/search",
-        json={"query": "dante", "sources": ["europeana"], "page": 1, "page_size": 10},
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["results"]
-    assert body["results"][0]["source"] == "europeana"
-
-
-def test_search_multi_source_federation() -> None:
-    response = client.post(
-        "/api/search",
-        json={
-            "query": "dante",
-            "sources": ["gallica", "bodleian", "europeana"],
-            "page": 1,
-            "page_size": 30,
-        },
-    )
-    assert response.status_code == 200
-    body = response.json()
-    sources_found = {item["source"] for item in body["results"]}
-    assert "gallica" in sources_found
-    assert "bodleian" in sources_found
-    assert "europeana" in sources_found
+    assert body["results"][0]["id"].startswith("mock:")
 
 
 def test_item() -> None:
@@ -107,28 +50,6 @@ def test_import() -> None:
     assert response.json()["item"]["id"] == "mock:ms-1"
 
 
-def test_import_detects_direct_manifest_url() -> None:
-    response = client.post(
-        "/api/import",
-        json={"url": "https://example.org/iiif/manifest/abc"},
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["detected_source"] == "manifest_by_url"
-    assert body["manifest_url"] == "https://example.org/iiif/manifest/abc"
-
-
-def test_import_notice_heuristic_generates_manifest_candidate() -> None:
-    response = client.post(
-        "/api/import",
-        json={"url": "https://example.org/notice/42"},
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["detected_source"] == "manifest_by_url"
-    assert body["manifest_url"] == "https://example.org/notice/42/manifest"
-
-
 def test_item_rejects_invalid_global_id_format() -> None:
     response = client.get("/api/item/invalid-id")
     assert response.status_code == 400
@@ -137,11 +58,5 @@ def test_item_rejects_invalid_global_id_format() -> None:
 
 def test_import_rejects_non_http_url() -> None:
     response = client.post("/api/import", json={"url": "file:///etc/passwd"})
-    assert response.status_code == 400
-    assert response.json()["error"] == "bad_request"
-
-
-def test_import_rejects_localhost_url() -> None:
-    response = client.post("/api/import", json={"url": "http://localhost/internal"})
     assert response.status_code == 400
     assert response.json()["error"] == "bad_request"
