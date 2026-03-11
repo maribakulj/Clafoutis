@@ -277,6 +277,42 @@ docker run -p 8000:8000 universal-iiif-portal
 - certains champs Gallica restent absents/incertains selon les notices ;
 - la détection fine des types documentaires sera améliorée aux lots suivants.
 
+## Connecteurs Bodleian et Europeana (lot 6)
+
+### Bodleian — mapping `NormalizedItem`
+
+- `source_item_id` : identifiant objet Bodleian ;
+- `id` global : `bodleian:{source_item_id}` ;
+- `title`, `creators`, `date_display` : extraits du payload source ou fixtures ;
+- `record_url` : URL notice Bodleian (`/objects/{id}/`) ;
+- `manifest_url` : prioritairement fourni, sinon construit via pattern
+  `https://iiif.bodleian.ox.ac.uk/iiif/manifest/{id}.json` ;
+- `institution` : `Bodleian Libraries`.
+
+### Europeana — mapping `NormalizedItem`
+
+- `source_item_id` : `id` Europeana ;
+- `id` global : `europeana:{source_item_id}` ;
+- `title`, `creators`, `date_display` : extraits du payload source ou fixtures ;
+- `record_url` : `guid` Europeana (ou URL item fixture) ;
+- `manifest_url` :
+  - `edmIsShownBy` si manifest explicite ;
+  - sinon fallback pattern `https://iiif.europeana.eu/presentation/{item_path}/manifest` ;
+- `institution` : `Europeana` ou institution partenaire fixture.
+
+### Capacités et mode robustesse
+
+- les deux connecteurs implémentent `search`, `get_item`, `resolve_manifest`, `capabilities`, `healthcheck` ;
+- stratégie **fixture-first** activée par défaut au MVP (`CLAFOUTIS_BODLEIAN_USE_FIXTURES=true`, `CLAFOUTIS_EUROPEANA_USE_FIXTURES=true`) pour préserver la stabilité ;
+- en mode live, les erreurs réseau/API retombent en mode dégradé avec `partial_failures` explicites ;
+- Europeana live nécessite une clé API (`CLAFOUTIS_EUROPEANA_API_KEY`).
+
+### Limites connues (MVP)
+
+- endpoints live Bodleian/Europeana restent best-effort et peuvent évoluer ;
+- mapping conservateur pour limiter les faux positifs ;
+- enrichissement sémantique (types, droits, OCR, langue fine) prévu après lot 6.
+
 ## Principes de développement
 
 - code modulaire ;

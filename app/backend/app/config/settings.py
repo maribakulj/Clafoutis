@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     cors_allow_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     gallica_sru_base_url: str = "https://gallica.bnf.fr/SRU"
     gallica_use_fixtures: bool = True
+    bodleian_api_base_url: str = "https://digital.bodleian.ox.ac.uk"
+    bodleian_use_fixtures: bool = True
+    europeana_api_base_url: str = "https://api.europeana.eu/record/v2/search.json"
+    europeana_api_key: str | None = None
+    europeana_use_fixtures: bool = True
 
     model_config = SettingsConfigDict(env_prefix="CLAFOUTIS_", extra="ignore")
 

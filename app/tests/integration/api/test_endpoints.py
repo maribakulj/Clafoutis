@@ -20,6 +20,8 @@ def test_sources() -> None:
     names = [source["name"] for source in body["sources"]]
     assert "mock" in names
     assert "gallica" in names
+    assert "bodleian" in names
+    assert "europeana" in names
     assert "manifest_by_url" in names
 
 
@@ -28,7 +30,8 @@ def test_search() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["results"]
-    assert body["results"][0]["id"].startswith("mock:")
+    result_sources = {item["source"] for item in body["results"]}
+    assert "mock" in result_sources or "bodleian" in result_sources
 
 
 def test_search_gallica_fixture_source() -> None:
@@ -40,6 +43,46 @@ def test_search_gallica_fixture_source() -> None:
     body = response.json()
     assert body["results"]
     assert body["results"][0]["source"] == "gallica"
+
+
+def test_search_bodleian_fixture_source() -> None:
+    response = client.post(
+        "/api/search",
+        json={"query": "dante", "sources": ["bodleian"], "page": 1, "page_size": 10},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results"]
+    assert body["results"][0]["source"] == "bodleian"
+
+
+def test_search_europeana_fixture_source() -> None:
+    response = client.post(
+        "/api/search",
+        json={"query": "dante", "sources": ["europeana"], "page": 1, "page_size": 10},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results"]
+    assert body["results"][0]["source"] == "europeana"
+
+
+def test_search_multi_source_federation() -> None:
+    response = client.post(
+        "/api/search",
+        json={
+            "query": "dante",
+            "sources": ["gallica", "bodleian", "europeana"],
+            "page": 1,
+            "page_size": 30,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    sources_found = {item["source"] for item in body["results"]}
+    assert "gallica" in sources_found
+    assert "bodleian" in sources_found
+    assert "europeana" in sources_found
 
 
 def test_item() -> None:

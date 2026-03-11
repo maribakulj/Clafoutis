@@ -2,6 +2,8 @@
 
 from functools import lru_cache
 
+from app.connectors.bodleian import BodleianConnector
+from app.connectors.europeana import EuropeanaConnector
 from app.connectors.gallica import GallicaConnector
 from app.connectors.manifest_by_url_connector import ManifestByUrlConnector
 from app.connectors.mock_connector import MockConnector
@@ -20,6 +22,8 @@ def get_registry() -> ConnectorRegistry:
     registry = ConnectorRegistry()
     registry.register(MockConnector())
     registry.register(GallicaConnector())
+    registry.register(BodleianConnector())
+    registry.register(EuropeanaConnector())
     registry.register(ManifestByUrlConnector())
     return registry
 
