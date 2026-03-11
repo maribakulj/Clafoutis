@@ -145,6 +145,34 @@ Le moteur fédéré ne doit jamais échouer globalement à cause d’un seul con
 - `POST /api/resolve-manifest`
 - `POST /api/import`
 
+### Heuristiques MVP de `/api/import`
+
+Le connecteur générique `manifest_by_url` applique des heuristiques minimales et explicites :
+
+1. **Manifest direct** : l’URL est considérée comme manifest si son chemin contient `manifest`
+   (ou se termine par `manifest.json`).
+2. **Notice -> manifest** : si l’URL ne ressemble pas à un manifest, le backend tente des suffixes
+   courants, dans cet ordre :
+   - `/manifest`
+   - `/manifest.json`
+   - `/iiif/manifest`
+   - `/iiif/manifest.json`
+
+Ces heuristiques sont volontairement simples au MVP et seront enrichies par source aux lots
+connecteurs réels.
+
+### Sécurité MVP import URL (validation + SSRF basique)
+
+`/api/import` applique une validation stricte avant résolution :
+
+- schémas autorisés : `http`, `https` uniquement ;
+- rejet explicite de `localhost`/hôtes locaux ;
+- rejet des IP privées/loopback/link-local/réservées/unspecified ;
+- rejet des hôtes DNS qui résolvent vers ces plages privées/locales.
+
+Limite connue MVP : cette protection SSRF reste basique et devra être durcie (allowlist,
+résolution DNS contrôlée, protections réseau infra) avant production.
+
 ## Outils MCP prévus
 
 - `search_items`
@@ -165,11 +193,10 @@ Le moteur fédéré ne doit jamais échouer globalement à cause d’un seul con
 ### Backend
 
 ```bash
-cd app/backend
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+pip install -e '.[dev]'
+uvicorn app.main:app --app-dir app/backend --reload
 ```
 
 ### Frontend
@@ -178,6 +205,14 @@ uvicorn app.main:app --reload
 cd app/frontend
 npm install
 npm run dev
+```
+
+Par défaut, le frontend appelle `http://localhost:8000`.
+
+Optionnel :
+
+```bash
+VITE_API_BASE_URL=http://localhost:8000 npm run dev
 ```
 
 ## Variables d’environnement
@@ -209,6 +244,38 @@ docker run -p 8000:8000 universal-iiif-portal
 - Bodleian Digital
 - Europeana
 - connecteur générique `manifest-by-url`
+
+## Connecteur Gallica (lot 5)
+
+### Hypothèses de mapping `NormalizedItem`
+
+- `source_item_id` : ARK extrait des identifiants Gallica (`ark:/...`) ;
+- `id` global : `gallica:{source_item_id}` ;
+- `title` : premier champ `dc:title` disponible ;
+- `creators` : liste des `dc:creator` ;
+- `date_display` : premier `dc:date` ;
+- `object_type` : dérivé de `dc:type` via mapping simple (`manuscript`, `book`, `map`, `image`, `newspaper`, `other`) ;
+- `record_url` : premier `dc:identifier` ;
+- `manifest_url` : construit depuis l’ARK (`https://gallica.bnf.fr/iiif/{ark}/manifest.json`) ;
+- `institution` : `Bibliothèque nationale de France`.
+
+### Stratégie de résolution de manifest
+
+1. si `item.manifest_url` est déjà présent, il est renvoyé ;
+2. sinon, extraction d’un ARK depuis `record_url` (ou URL fournie) ;
+3. construction déterministe de l’URL IIIF manifest Gallica.
+
+### Robustesse / mode fallback
+
+- Le connecteur tente un mode live SRU Gallica ;
+- pour éviter de casser la suite en environnement instable, un mode fixtures est disponible (`CLAFOUTIS_GALLICA_USE_FIXTURES=true` au MVP, valeur par défaut) ;
+- en cas d’échec live, le connecteur renvoie un succès dégradé avec données fixtures et `partial_failures` explicite.
+
+### Limites connues (MVP)
+
+- le parsing SRU est volontairement minimal et basé sur un sous-ensemble Dublin Core ;
+- certains champs Gallica restent absents/incertains selon les notices ;
+- la détection fine des types documentaires sera améliorée aux lots suivants.
 
 ## Principes de développement
 

@@ -1,0 +1,44 @@
+"""FastAPI application entrypoint for backend lot 1."""
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.api.router import api_router
+from app.config.settings import settings
+from app.models.error_models import ErrorResponse
+from app.utils.errors import AppError, BadRequestError, NotFoundError
+
+
+def create_app() -> FastAPI:
+    """Create and configure FastAPI application."""
+
+    application = FastAPI(title=settings.app_name, version=settings.app_version, debug=settings.debug)
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allow_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    application.include_router(api_router)
+
+    @application.exception_handler(BadRequestError)
+    async def handle_bad_request(_: Request, exc: BadRequestError) -> JSONResponse:
+        payload = ErrorResponse(error="bad_request", details=str(exc)).model_dump()
+        return JSONResponse(status_code=400, content=payload)
+
+    @application.exception_handler(NotFoundError)
+    async def handle_not_found(_: Request, exc: NotFoundError) -> JSONResponse:
+        payload = ErrorResponse(error="not_found", details=str(exc)).model_dump()
+        return JSONResponse(status_code=404, content=payload)
+
+    @application.exception_handler(AppError)
+    async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
+        payload = ErrorResponse(error="application_error", details=str(exc)).model_dump()
+        return JSONResponse(status_code=500, content=payload)
+
+    return application
+
+
+app = create_app()
