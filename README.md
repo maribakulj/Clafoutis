@@ -165,11 +165,10 @@ Le moteur fédéré ne doit jamais échouer globalement à cause d’un seul con
 ### Backend
 
 ```bash
-cd app/backend
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+pip install -e '.[dev]'
+uvicorn app.main:app --app-dir app/backend --reload
 ```
 
 ### Frontend
@@ -178,6 +177,14 @@ uvicorn app.main:app --reload
 cd app/frontend
 npm install
 npm run dev
+```
+
+Par défaut, le frontend appelle `http://localhost:8000`.
+
+Optionnel :
+
+```bash
+VITE_API_BASE_URL=http://localhost:8000 npm run dev
 ```
 
 ## Variables d’environnement
