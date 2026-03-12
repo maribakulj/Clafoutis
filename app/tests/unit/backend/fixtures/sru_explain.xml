@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<srw:explainResponse xmlns:srw='http://www.loc.gov/zing/srw/' xmlns:zr='http://explain.z3950.org/dtd/2.0/'>
+  <srw:record>
+    <srw:recordData>
+      <zr:explain>
+        <zr:serverInfo protocol='SRU' version='1.2'/>
+        <zr:indexInfo>
+          <zr:index><zr:title>dc.title</zr:title></zr:index>
+          <zr:index><zr:title>dc.creator</zr:title></zr:index>
+        </zr:indexInfo>
+      </zr:explain>
+    </srw:recordData>
+  </srw:record>
+</srw:explainResponse>
