@@ -73,21 +73,7 @@ class ManifestByUrlConnector(BaseConnector):
     async def capabilities(self) -> SourceCapabilities:
         """Declare capabilities for this connector."""
 
-        return SourceCapabilities(
-            search=False,
-            get_item=False,
-            resolve_manifest=True,
-            free_text_search=False,
-            structured_search=False,
-            pagination=False,
-            facets=False,
-            direct_manifest_resolution=True,
-            thumbnails=False,
-            ocr_signal=False,
-            image_availability=True,
-            runtime_detection=False,
-            protocol_family="iiif_only",
-        )
+        return SourceCapabilities(search=False, get_item=False, resolve_manifest=True)
 
     def _looks_like_manifest_url(self, url: str) -> bool:
         parsed = urlparse(url)

@@ -123,21 +123,7 @@ class GallicaConnector(BaseConnector):
     async def capabilities(self) -> SourceCapabilities:
         """Return Gallica connector capabilities."""
 
-        return SourceCapabilities(
-            search=True,
-            get_item=True,
-            resolve_manifest=True,
-            free_text_search=True,
-            structured_search=True,
-            pagination=True,
-            facets=False,
-            direct_manifest_resolution=True,
-            thumbnails=True,
-            ocr_signal=False,
-            image_availability=True,
-            runtime_detection=True,
-            protocol_family="sru",
-        )
+        return SourceCapabilities(search=True, get_item=True, resolve_manifest=True)
 
     async def _fetch_search_records(
         self,
