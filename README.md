@@ -1,3 +1,11 @@
+---
+title: Clafoutis MVP
+emoji: 📚
+sdk: docker
+app_port: 7860
+short_description: Prototype federated portal for cultural heritage resources.
+---
+
 # Clafoutis
 
 Portail universel de recherche IIIF avec lecture dans Mirador et connecteurs extensibles.
@@ -173,34 +181,6 @@ connecteurs réels.
 Limite connue MVP : cette protection SSRF reste basique et devra être durcie (allowlist,
 résolution DNS contrôlée, protections réseau infra) avant production.
 
-### Capability probing runtime (`/api/sources`)
-
-Le système distingue désormais trois vues des capacités :
-
-- `declared_capabilities` : capacités annoncées localement par le connecteur ;
-- `detected_capabilities` : capacités détectées dynamiquement à l’exécution (si supporté) ;
-- `effective_capabilities` : fusion utilisée par l’application.
-
-Statuts de probing exposés par source :
-
-- `supported` : probing exécuté avec succès ;
-- `not_supported` : source/protocole sans probing runtime implémenté ;
-- `skipped` : probing désactivé par configuration ;
-- `timeout` : probing abandonné sur dépassement de délai ;
-- `failed` : erreur d’exécution pendant la détection.
-
-Règle de fusion MVP : les valeurs détectées remplacent les valeurs déclarées pour
-`effective_capabilities`; toute divergence est conservée dans `capability_warnings`.
-En cas d’échec/timeout/non-support, l’application retombe sur les capacités déclarées.
-
-### Probing SRU Explain (MVP)
-
-Un probe SRU dédié interroge l’opération `Explain` (ou une fixture en mode stable)
-pour déduire un sous-ensemble de capacités (`structured_search`, famille protocolaire, etc.).
-
-Limite importante : `Explain` aide l’autoconfiguration technique mais ne remplace
-pas le mapping métier manuel des métadonnées vers `NormalizedItem`.
-
 ## Outils MCP prévus
 
 - `search_items`
@@ -224,7 +204,7 @@ pas le mapping métier manuel des métadonnées vers `NormalizedItem`.
 python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
-uvicorn app.main:app --app-dir app/backend --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --app-dir app/backend --reload
 ```
 
 ### Frontend
@@ -320,27 +300,6 @@ Puis ouvrir :
 4. Optionnel : ajouter `CLAFOUTIS_EUROPEANA_API_KEY` pour le mode live Europeana.
 
 Le point d’entrée est `scripts/start.sh`, qui démarre Uvicorn sur `HOST/PORT` compatibles Space Docker.
-
-
-### Déploiement automatisé GitHub -> Hugging Face Space (à chaque PR)
-
-Le dépôt inclut un workflow GitHub Actions :
-
-- `.github/workflows/deploy-hf-space.yml`
-- déclenché sur `pull_request` (opened/reopened/synchronize/ready_for_review), `push` sur `main`, et manuel (`workflow_dispatch`)
-- il pousse l’état courant de la branche vers le dépôt Git du Space (`main`) via token.
-
-Configuration GitHub nécessaire :
-
-1. **Secret** : `HF_SPACE_TOKEN` (token Hugging Face avec droit d’écriture sur le Space).
-2. **Repository variable (optionnel)** : `HF_SPACE_ID` (par défaut `Ma-Ri-Ba-Ku/Clafoutis`).
-
-Comportement :
-
-- Sur PR (hors draft), le Space est synchronisé avec la HEAD de la PR.
-- Sur merge/push `main`, le Space est resynchronisé.
-
-> Note sécurité : les secrets GitHub ne sont pas exposés aux PR provenant de forks.
 
 ## Sources prévues pour le MVP
 
