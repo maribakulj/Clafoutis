@@ -1,3 +1,11 @@
+---
+title: Clafoutis MVP
+emoji: 📚
+sdk: docker
+app_port: 7860
+short_description: Prototype federated portal for cultural heritage resources.
+---
+
 # Clafoutis
 
 Portail universel de recherche IIIF avec lecture dans Mirador et connecteurs extensibles.
