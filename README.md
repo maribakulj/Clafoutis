@@ -219,24 +219,79 @@ VITE_API_BASE_URL=http://localhost:8000 npm run dev
 
 Créer un fichier `.env` à partir de `.env.example`.
 
-Exemples de variables possibles :
+Variables backend principales (préfixe `CLAFOUTIS_`) :
 
 ```env
-APP_ENV=development
-BACKEND_HOST=0.0.0.0
-BACKEND_PORT=8000
-FRONTEND_PORT=5173
-ENABLE_MCP=false
-REQUEST_TIMEOUT_SECONDS=10
-DEFAULT_PAGE_SIZE=24
+CLAFOUTIS_DEBUG=false
+CLAFOUTIS_APP_HOST=0.0.0.0
+CLAFOUTIS_APP_PORT=7860
+CLAFOUTIS_REQUEST_TIMEOUT_SECONDS=8
+CLAFOUTIS_CORS_ALLOW_ORIGINS=["http://localhost:5173"]
+
+CLAFOUTIS_SERVE_FRONTEND=true
+CLAFOUTIS_FRONTEND_DIST_DIR=app/frontend/dist
+
+CLAFOUTIS_GALLICA_USE_FIXTURES=true
+CLAFOUTIS_BODLEIAN_USE_FIXTURES=true
+CLAFOUTIS_EUROPEANA_USE_FIXTURES=true
+CLAFOUTIS_EUROPEANA_API_KEY=
+
+CLAFOUTIS_ENABLE_CAPABILITY_PROBING=true
+CLAFOUTIS_CAPABILITY_PROBE_USE_FIXTURES=true
+CLAFOUTIS_CAPABILITY_PROBE_TIMEOUT_SECONDS=2
+CLAFOUTIS_CAPABILITY_PROBE_CACHE_TTL_SECONDS=300
 ```
 
-## Lancement avec Docker
+Pour le frontend en mode dev local (Vite séparé) :
+
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+## Packaging Docker (lot démo Hugging Face Spaces)
+
+Stratégie MVP :
+
+- image **unique** ;
+- build frontend React dans une étape Node ;
+- copie des assets `dist` dans l’image runtime Python ;
+- backend FastAPI sert API + assets frontend (SPA fallback) sur un **port unique** ;
+- mode fixtures activable par variables d’environnement (par défaut recommandé pour démo).
+
+### Build image
 
 ```bash
-docker build -t universal-iiif-portal .
-docker run -p 8000:8000 universal-iiif-portal
+docker build -t clafoutis-mvp .
 ```
+
+### Run local (démo)
+
+```bash
+docker run --rm -p 7860:7860 \
+  -e PORT=7860 \
+  -e CLAFOUTIS_GALLICA_USE_FIXTURES=true \
+  -e CLAFOUTIS_BODLEIAN_USE_FIXTURES=true \
+  -e CLAFOUTIS_EUROPEANA_USE_FIXTURES=true \
+  clafoutis-mvp
+```
+
+Puis ouvrir :
+
+- UI : `http://localhost:7860`
+- API health : `http://localhost:7860/api/health`
+
+### Hugging Face Spaces (Docker)
+
+1. Créer un Space de type **Docker**.
+2. Pousser ce dépôt (avec `Dockerfile`) dans le Space.
+3. Définir les variables du Space (Settings -> Variables), au minimum :
+   - `PORT=7860`
+   - `CLAFOUTIS_GALLICA_USE_FIXTURES=true`
+   - `CLAFOUTIS_BODLEIAN_USE_FIXTURES=true`
+   - `CLAFOUTIS_EUROPEANA_USE_FIXTURES=true`
+4. Optionnel : ajouter `CLAFOUTIS_EUROPEANA_API_KEY` pour le mode live Europeana.
+
+Le point d’entrée est `scripts/start.sh`, qui démarre Uvicorn sur `HOST/PORT` compatibles Space Docker.
 
 ## Sources prévues pour le MVP
 
