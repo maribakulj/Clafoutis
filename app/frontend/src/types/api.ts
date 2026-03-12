@@ -48,14 +48,3 @@ export interface ApiError {
   error: string
   details: string | null
 }
-
-export interface ImportRequest {
-  url: string
-}
-
-export interface ImportResponse {
-  detected_source: string | null
-  record_url: string | null
-  manifest_url: string | null
-  item: NormalizedItem | null
-}
