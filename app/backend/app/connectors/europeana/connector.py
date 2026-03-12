@@ -116,21 +116,7 @@ class EuropeanaConnector(BaseConnector):
     async def capabilities(self) -> SourceCapabilities:
         """Return Europeana connector capabilities."""
 
-        return SourceCapabilities(
-            search=True,
-            get_item=True,
-            resolve_manifest=True,
-            free_text_search=True,
-            structured_search=True,
-            pagination=True,
-            facets=False,
-            direct_manifest_resolution=True,
-            thumbnails=True,
-            ocr_signal=False,
-            image_availability=True,
-            runtime_detection=False,
-            protocol_family="proprietary",
-        )
+        return SourceCapabilities(search=True, get_item=True, resolve_manifest=True)
 
     async def _fetch_live_search_records(
         self,

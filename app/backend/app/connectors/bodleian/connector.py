@@ -114,21 +114,7 @@ class BodleianConnector(BaseConnector):
     async def capabilities(self) -> SourceCapabilities:
         """Return Bodleian connector capabilities."""
 
-        return SourceCapabilities(
-            search=True,
-            get_item=True,
-            resolve_manifest=True,
-            free_text_search=True,
-            structured_search=False,
-            pagination=True,
-            facets=False,
-            direct_manifest_resolution=True,
-            thumbnails=True,
-            ocr_signal=False,
-            image_availability=True,
-            runtime_detection=False,
-            protocol_family="proprietary",
-        )
+        return SourceCapabilities(search=True, get_item=True, resolve_manifest=True)
 
     async def _fetch_live_search_records(self, query: str) -> list[dict[str, object]]:
         """Fetch live Bodleian search records (best effort MVP endpoint)."""
