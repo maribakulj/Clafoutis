@@ -1,0 +1,45 @@
+name: Deploy Hugging Face Space
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: hf-space-deploy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: ${{ (github.event_name != 'pull_request' || !github.event.pull_request.draft) && secrets.HF_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_SPACE_ID: ${{ vars.HF_SPACE_ID || 'Ma-Ri-Ba-Ku/Clafoutis' }}
+    steps:
+      - name: Show deployment target
+        run: echo "Deploying to ${HF_SPACE_ID} from ${GITHUB_REF}"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Deploy to Hugging Face Space
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f Dockerfile ]; then
+            echo "Dockerfile missing at repository root"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote add hf-space "https://oauth2:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_ID}"
+          git push --force hf-space HEAD:main
