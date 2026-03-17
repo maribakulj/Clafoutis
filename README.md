@@ -302,8 +302,6 @@ Puis ouvrir :
    - `CLAFOUTIS_EUROPEANA_USE_FIXTURES=true`
 4. Optionnel : ajouter `CLAFOUTIS_EUROPEANA_API_KEY` pour le mode live Europeana.
    Le backend accepte aussi `HF_TOKEN` en fallback si votre secret Space porte ce nom.
-5. Si vous utilisez le workflow GitHub de déploiement, configurez un secret GitHub
-   `HF_SPACE_TOKEN` (ou `HF_TOKEN`, désormais accepté en fallback).
 
 Le point d’entrée est `scripts/start.sh`, qui démarre Uvicorn sur `HOST/PORT` compatibles Space Docker.
 
