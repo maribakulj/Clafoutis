@@ -19,7 +19,7 @@ jobs:
       contents: read
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_SPACE_TOKEN: ${{ secrets.HF_SPACE_TOKEN }}
       HF_SPACE_ID: ${{ vars.HF_SPACE_ID || 'Ma-Ri-Ba-Ku/Clafoutis' }}
     steps:
       - name: Checkout repository
@@ -31,8 +31,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${HF_TOKEN:-}" ]; then
-            echo "HF_TOKEN is empty; skipping deployment."
+          if [ -z "${HF_SPACE_TOKEN:-}" ]; then
+            echo "HF_SPACE_TOKEN is empty; skipping deployment."
             exit 0
           fi
 
