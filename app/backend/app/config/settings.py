@@ -1,6 +1,6 @@
 """Application settings loaded from environment variables."""
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,7 +20,10 @@ class Settings(BaseSettings):
     bodleian_api_base_url: str = "https://api.bodleian.ox.ac.uk/iiif"
     europeana_use_fixtures: bool = False
     europeana_api_base_url: str = "https://api.europeana.eu/record/v2/search.json"
-    europeana_api_key: str = ""
+    europeana_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("CLAFOUTIS_EUROPEANA_API_KEY", "EUROPEANA_API_KEY", "HF_TOKEN"),
+    )
 
     # Runtime capability probing
     enable_capability_probing: bool = True
