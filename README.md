@@ -211,7 +211,7 @@ uvicorn app.main:app --app-dir app/backend --reload
 
 ```bash
 cd app/frontend
-npm install
+npm install --legacy-peer-deps
 npm run dev
 ```
 
@@ -243,6 +243,9 @@ CLAFOUTIS_GALLICA_USE_FIXTURES=true
 CLAFOUTIS_BODLEIAN_USE_FIXTURES=true
 CLAFOUTIS_EUROPEANA_USE_FIXTURES=true
 CLAFOUTIS_EUROPEANA_API_KEY=
+
+# Hugging Face Spaces: HF_TOKEN est aussi accepté en fallback pour Europeana
+# (utile si votre secret Space est nommé HF_TOKEN).
 
 CLAFOUTIS_ENABLE_CAPABILITY_PROBING=true
 CLAFOUTIS_CAPABILITY_PROBE_USE_FIXTURES=true
@@ -298,6 +301,9 @@ Puis ouvrir :
    - `CLAFOUTIS_BODLEIAN_USE_FIXTURES=true`
    - `CLAFOUTIS_EUROPEANA_USE_FIXTURES=true`
 4. Optionnel : ajouter `CLAFOUTIS_EUROPEANA_API_KEY` pour le mode live Europeana.
+   Le backend accepte aussi `HF_TOKEN` en fallback si votre secret Space porte ce nom.
+5. Si vous utilisez le workflow GitHub de déploiement, configurez un secret GitHub
+   `HF_SPACE_TOKEN` (ou `HF_TOKEN`, désormais accepté en fallback).
 
 Le point d’entrée est `scripts/start.sh`, qui démarre Uvicorn sur `HOST/PORT` compatibles Space Docker.
 
