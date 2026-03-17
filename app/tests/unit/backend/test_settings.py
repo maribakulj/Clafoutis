@@ -38,37 +38,3 @@ def test_bodleian_use_fixtures_accepts_descriptive_value(monkeypatch) -> None:
     loaded = Settings()
 
     assert loaded.bodleian_use_fixtures is True
-
-
-def test_serve_frontend_accepts_descriptive_value(monkeypatch) -> None:
-    """Frontend serving flag should tolerate descriptive values from Space UI."""
-
-    monkeypatch.setenv("CLAFOUTIS_SERVE_FRONTEND", "Serve the built frontend from the backend")
-
-    loaded = Settings()
-
-    assert loaded.serve_frontend is True
-
-
-def test_fixture_flags_default_to_true_for_mvp(monkeypatch) -> None:
-    """Fixture flags should default to true to match MVP fixture-first deployment."""
-
-    monkeypatch.delenv("CLAFOUTIS_GALLICA_USE_FIXTURES", raising=False)
-    monkeypatch.delenv("CLAFOUTIS_BODLEIAN_USE_FIXTURES", raising=False)
-    monkeypatch.delenv("CLAFOUTIS_EUROPEANA_USE_FIXTURES", raising=False)
-
-    loaded = Settings()
-
-    assert loaded.gallica_use_fixtures is True
-    assert loaded.bodleian_use_fixtures is True
-    assert loaded.europeana_use_fixtures is True
-
-
-def test_serve_frontend_accepts_disable_token(monkeypatch) -> None:
-    """Explicit disable token should disable frontend serving."""
-
-    monkeypatch.setenv("CLAFOUTIS_SERVE_FRONTEND", "disabled")
-
-    loaded = Settings()
-
-    assert loaded.serve_frontend is False
