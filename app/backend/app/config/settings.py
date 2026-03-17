@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     debug: bool = False
     request_timeout_seconds: float = Field(default=8.0, gt=0)
     cors_allow_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    serve_frontend: bool = True
+    frontend_dist_dir: str = "app/frontend/dist"
 
     # Connector settings
     gallica_use_fixtures: bool = False
