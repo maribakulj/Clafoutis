@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { buildMiradorConfig } from './miradorConfig'
 
-import 'mirador/dist/css/mirador.min.css'
-
 export interface MiradorWorkspaceProps {
   manifestUrls: string[]
   initialView?: 'single' | 'compare'
