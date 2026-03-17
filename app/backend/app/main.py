@@ -41,7 +41,7 @@ def create_app() -> FastAPI:
         payload = ErrorResponse(error="application_error", details=str(exc)).model_dump()
         return JSONResponse(status_code=500, content=payload)
 
-    if settings.serve_frontend_enabled:
+    if settings.serve_frontend:
         frontend_dist = Path(settings.frontend_dist_dir)
         index_file = frontend_dist / "index.html"
 
