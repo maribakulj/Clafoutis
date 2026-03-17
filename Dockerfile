@@ -3,7 +3,7 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/app/frontend
 COPY app/frontend/package.json app/frontend/package-lock.json* ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 COPY app/frontend/ ./
 ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}

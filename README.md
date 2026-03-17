@@ -211,7 +211,7 @@ uvicorn app.main:app --app-dir app/backend --reload
 
 ```bash
 cd app/frontend
-npm install
+npm install --legacy-peer-deps
 npm run dev
 ```
 
