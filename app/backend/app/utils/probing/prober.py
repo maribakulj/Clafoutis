@@ -17,6 +17,7 @@ from app.utils.probing.sru_probe import SRUCapabilityProbe
 class ProbeSnapshot:
     """Cached runtime probe information for one source."""
 
+    declared_capabilities: RuntimeCapabilities
     detected_capabilities: RuntimeCapabilities | None
     effective_capabilities: RuntimeCapabilities
     probe_status: ProbeStatus
@@ -80,6 +81,7 @@ class CapabilityProber:
         if not settings.enable_capability_probing:
             effective, warnings = self.merge_capabilities(declared, None)
             snapshot = ProbeSnapshot(
+                declared_capabilities=declared,
                 detected_capabilities=None,
                 effective_capabilities=effective,
                 probe_status="skipped",
@@ -95,6 +97,7 @@ class CapabilityProber:
         if declared.protocol_family != "sru" or not declared.runtime_detection:
             effective, warnings = self.merge_capabilities(declared, None)
             snapshot = ProbeSnapshot(
+                declared_capabilities=declared,
                 detected_capabilities=None,
                 effective_capabilities=effective,
                 probe_status="not_supported",
@@ -111,6 +114,7 @@ class CapabilityProber:
             detected, message = await self._probe_sru_connector(connector)
             effective, warnings = self.merge_capabilities(declared, detected)
             snapshot = ProbeSnapshot(
+                declared_capabilities=declared,
                 detected_capabilities=detected,
                 effective_capabilities=effective,
                 probe_status="supported",
@@ -123,6 +127,7 @@ class CapabilityProber:
         except TimeoutError:
             effective, warnings = self.merge_capabilities(declared, None)
             snapshot = ProbeSnapshot(
+                declared_capabilities=declared,
                 detected_capabilities=None,
                 effective_capabilities=effective,
                 probe_status="timeout",
@@ -135,6 +140,7 @@ class CapabilityProber:
         except (httpx.TimeoutException, httpx.ReadTimeout):
             effective, warnings = self.merge_capabilities(declared, None)
             snapshot = ProbeSnapshot(
+                declared_capabilities=declared,
                 detected_capabilities=None,
                 effective_capabilities=effective,
                 probe_status="timeout",
@@ -147,6 +153,7 @@ class CapabilityProber:
         except Exception as exc:  # noqa: BLE001
             effective, warnings = self.merge_capabilities(declared, None)
             snapshot = ProbeSnapshot(
+                declared_capabilities=declared,
                 detected_capabilities=None,
                 effective_capabilities=effective,
                 probe_status="failed",
