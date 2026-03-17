@@ -1,6 +1,9 @@
 """Application settings loaded from environment variables."""
 
+import re
+
 from pydantic import AliasChoices, Field
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,6 +33,46 @@ class Settings(BaseSettings):
     capability_probe_use_fixtures: bool = True
     capability_probe_timeout_seconds: float = Field(default=3.0, gt=0)
     capability_probe_cache_ttl_seconds: int = Field(default=300, ge=0)
+
+    @field_validator(
+        "debug",
+        "gallica_use_fixtures",
+        "bodleian_use_fixtures",
+        "europeana_use_fixtures",
+        "enable_capability_probing",
+        "capability_probe_use_fixtures",
+        mode="before",
+    )
+    @classmethod
+    def normalize_bool_env_values(cls, value: object, info):
+        """Normalize permissive boolean-like environment values for robust deployments."""
+
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if not isinstance(value, str):
+            return value
+
+        normalized = value.strip().lower()
+        truthy = {"1", "true", "yes", "on"}
+        falsy = {"0", "false", "no", "off", ""}
+
+        if normalized in truthy:
+            return True
+        if normalized in falsy:
+            return False
+
+        first_token = re.split(r"[^a-z0-9]+", normalized, maxsplit=1)[0]
+        if first_token in truthy:
+            return True
+        if first_token in falsy:
+            return False
+
+        if info.field_name.endswith("_use_fixtures") and "fixture" in normalized:
+            return True
+
+        return cls.model_fields[info.field_name].default
 
     model_config = SettingsConfigDict(env_prefix="CLAFOUTIS_", extra="ignore")
 
