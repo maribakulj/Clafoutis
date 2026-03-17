@@ -18,11 +18,12 @@ jobs:
     permissions:
       contents: read
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       HF_SPACE_TOKEN: ${{ secrets.HF_SPACE_TOKEN }}
       HF_SPACE_ID: ${{ vars.HF_SPACE_ID || 'Ma-Ri-Ba-Ku/Clafoutis' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
