@@ -1,11 +1,8 @@
 """FastAPI application entrypoint for backend lot 1."""
 
-from pathlib import Path
-
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.config.settings import settings
@@ -25,33 +22,6 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     application.include_router(api_router)
-
-    frontend_dist = Path(settings.frontend_dist_dir)
-    frontend_index = frontend_dist / "index.html"
-
-    frontend_assets = frontend_dist / "assets"
-
-    if settings.serve_frontend and frontend_dist.exists() and frontend_index.exists() and frontend_assets.exists():
-        application.mount(
-            "/assets",
-            StaticFiles(directory=frontend_assets),
-            name="frontend-assets",
-        )
-
-        @application.get("/", include_in_schema=False)
-        async def root_index() -> FileResponse:
-            """Serve frontend SPA index page when bundled assets are available."""
-
-            return FileResponse(frontend_index)
-
-        @application.get("/{full_path:path}", include_in_schema=False)
-        async def frontend_fallback(full_path: str) -> FileResponse:
-            """Serve SPA fallback for non-API routes in single-container deployment."""
-
-            if full_path.startswith("api/"):
-                payload = ErrorResponse(error="not_found", details="endpoint not found").model_dump()
-                return JSONResponse(status_code=404, content=payload)
-            return FileResponse(frontend_index)
 
     @application.exception_handler(BadRequestError)
     async def handle_bad_request(_: Request, exc: BadRequestError) -> JSONResponse:
