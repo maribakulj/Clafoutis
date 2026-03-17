@@ -38,7 +38,6 @@ class Settings(BaseSettings):
 
     @field_validator(
         "debug",
-        "serve_frontend",
         "gallica_use_fixtures",
         "bodleian_use_fixtures",
         "europeana_use_fixtures",
