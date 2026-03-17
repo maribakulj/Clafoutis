@@ -13,44 +13,30 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    if: ${{ !github.event.pull_request.draft && secrets.HF_SPACE_TOKEN != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     env:
       HF_SPACE_TOKEN: ${{ secrets.HF_SPACE_TOKEN }}
-      HF_SPACE_ID: ${{ vars.HF_SPACE_ID || 'TON_USERNAME/NOM_DU_SPACE' }}
+      HF_SPACE_ID: ${{ vars.HF_SPACE_ID || 'Ma-Ri-Ba-Ku/Clafoutis' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Validate Hugging Face token
+      - name: Deploy to Hugging Face Space
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${HF_SPACE_TOKEN:-}" ]; then
-            echo "HF_SPACE_TOKEN is missing. Configure repository secret HF_SPACE_TOKEN."
+          if [ ! -f Dockerfile ]; then
+            echo "Dockerfile missing at repository root"
             exit 1
           fi
 
-      - name: Configure git
-        shell: bash
-        run: |
-          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Check Hugging Face remote access
-        shell: bash
-        run: |
-          set -euo pipefail
           git remote add hf-space "https://oauth2:${HF_SPACE_TOKEN}@huggingface.co/spaces/${HF_SPACE_ID}"
-          git ls-remote hf-space >/dev/null
-
-      - name: Push to Hugging Face Space
-        shell: bash
-        run: |
-          set -euo pipefail
-          git push hf-space HEAD:main
+          git push --force hf-space HEAD:main

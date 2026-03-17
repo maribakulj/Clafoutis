@@ -106,18 +106,4 @@ class MockConnector(BaseConnector):
     async def capabilities(self) -> SourceCapabilities:
         """Return static capabilities for the mock connector."""
 
-        return SourceCapabilities(
-            search=True,
-            get_item=True,
-            resolve_manifest=True,
-            free_text_search=True,
-            structured_search=False,
-            pagination=True,
-            facets=False,
-            direct_manifest_resolution=True,
-            thumbnails=False,
-            ocr_signal=True,
-            image_availability=True,
-            runtime_detection=False,
-            protocol_family="mock",
-        )
+        return SourceCapabilities(search=True, get_item=True, resolve_manifest=True)
