@@ -244,6 +244,9 @@ CLAFOUTIS_BODLEIAN_USE_FIXTURES=true
 CLAFOUTIS_EUROPEANA_USE_FIXTURES=true
 CLAFOUTIS_EUROPEANA_API_KEY=
 
+# Hugging Face Spaces: HF_TOKEN est aussi accepté en fallback pour Europeana
+# (utile si votre secret Space est nommé HF_TOKEN).
+
 CLAFOUTIS_ENABLE_CAPABILITY_PROBING=true
 CLAFOUTIS_CAPABILITY_PROBE_USE_FIXTURES=true
 CLAFOUTIS_CAPABILITY_PROBE_TIMEOUT_SECONDS=2
@@ -298,6 +301,7 @@ Puis ouvrir :
    - `CLAFOUTIS_BODLEIAN_USE_FIXTURES=true`
    - `CLAFOUTIS_EUROPEANA_USE_FIXTURES=true`
 4. Optionnel : ajouter `CLAFOUTIS_EUROPEANA_API_KEY` pour le mode live Europeana.
+   Le backend accepte aussi `HF_TOKEN` en fallback si votre secret Space porte ce nom.
 
 Le point d’entrée est `scripts/start.sh`, qui démarre Uvicorn sur `HOST/PORT` compatibles Space Docker.
 
