@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 
 from app.config.settings import settings
@@ -13,9 +14,11 @@ from app.models.source_models import SourceCapabilities
 from app.utils.http_client import build_async_client
 from app.utils.ids import make_global_id
 
+logger = logging.getLogger(__name__)
+
 
 class EuropeanaConnector(FixtureConnectorMixin, BaseConnector):
-    """Europeana connector with fixture-first strategy and optional live API mode."""
+    """Europeana connector -- live API first, fixture fallback on error."""
 
     name = "europeana"
     label = "Europeana"
@@ -31,32 +34,24 @@ class EuropeanaConnector(FixtureConnectorMixin, BaseConnector):
         page_size: int,
     ) -> SearchResponse:
         start = time.perf_counter()
-        needs_local_pagination = False
 
-        if settings.europeana_use_fixtures:
-            needs_local_pagination = True
+        try:
+            records = await self._fetch_live_search_records(query=query, page=page, page_size=page_size)
+            items = [self._map_live_record(r, i) for i, r in enumerate(records)]
+            partial: list[PartialFailure] = []
+            needs_local_pagination = False
+        except Exception as exc:
+            logger.warning("Europeana live search failed, using fixtures: %s", exc)
             records = self._search_fixtures(query, FIXTURE_EUROPEANA_RECORDS)
             items = [
                 self._map_fixture_record(r, i, default_institution=self._DEFAULT_INSTITUTION)
                 for i, r in enumerate(records)
             ]
-            partial: list[PartialFailure] = []
-        else:
-            try:
-                records = await self._fetch_live_search_records(query=query, page=page, page_size=page_size)
-                items = [self._map_live_record(r, i) for i, r in enumerate(records)]
-                partial: list[PartialFailure] = []
-            except Exception as exc:
-                needs_local_pagination = True
-                records = self._search_fixtures(query, FIXTURE_EUROPEANA_RECORDS)
-                items = [
-                    self._map_fixture_record(r, i, default_institution=self._DEFAULT_INSTITUTION)
-                    for i, r in enumerate(records)
-                ]
-                partial = [PartialFailure(
-                    source=self.name, status="degraded",
-                    error=f"live_europeana_unavailable: {exc}",
-                )]
+            partial = [PartialFailure(
+                source=self.name, status="degraded",
+                error=f"live_europeana_unavailable: {exc}",
+            )]
+            needs_local_pagination = True
 
         return self._build_search_response(
             query=query, page=page, page_size=page_size,
@@ -65,6 +60,7 @@ class EuropeanaConnector(FixtureConnectorMixin, BaseConnector):
         )
 
     async def get_item(self, source_item_id: str) -> NormalizedItem | None:
+        # Europeana doesn't have a simple item-by-id endpoint; use fixtures as catalog
         return self._get_fixture_item(
             source_item_id, FIXTURE_EUROPEANA_RECORDS,
             default_institution=self._DEFAULT_INSTITUTION,
@@ -93,16 +89,17 @@ class EuropeanaConnector(FixtureConnectorMixin, BaseConnector):
         return None
 
     async def healthcheck(self) -> dict[str, str]:
-        if settings.europeana_use_fixtures:
-            return {"status": "ok", "mode": "fixtures"}
         if not settings.europeana_api_key:
             return {"status": "error", "mode": "live", "reason": "missing_api_key"}
 
-        async with build_async_client() as client:
-            response = await client.get(settings.europeana_api_base_url)
-            if response.status_code >= 400:
-                return {"status": "error", "mode": "live"}
-        return {"status": "ok", "mode": "live"}
+        try:
+            async with build_async_client() as client:
+                response = await client.get(settings.europeana_api_base_url)
+                if response.status_code >= 400:
+                    return {"status": "error", "mode": "live"}
+            return {"status": "ok", "mode": "live"}
+        except Exception:
+            return {"status": "error", "mode": "live"}
 
     async def capabilities(self) -> SourceCapabilities:
         return SourceCapabilities(search=True, get_item=True, resolve_manifest=True)

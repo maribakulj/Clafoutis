@@ -47,6 +47,7 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
             items = [self._map_record(record, index) for index, record in enumerate(records)]
             partial: list[PartialFailure] = []
         except Exception as exc:
+            logger.warning("Gallica live search failed, using fixtures: %s", exc)
             needs_local_pagination = True
             records = self._search_fixtures(query, FIXTURE_GALLICA_RECORDS)
             items = [
@@ -101,19 +102,19 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
         return self._manifest_from_ark(ark) if ark else None
 
     async def healthcheck(self) -> dict[str, str]:
-        if settings.gallica_use_fixtures:
-            return {"status": "ok", "mode": "fixtures"}
-
-        params_query = quote_plus('dc.title all "dante"')
-        url = (
-            f"{settings.gallica_sru_base_url}?version=1.2&operation=searchRetrieve"
-            f"&query={params_query}&maximumRecords=1"
-        )
-        async with build_async_client() as client:
-            response = await client.get(url)
-            if response.status_code >= 400:
-                return {"status": "error", "mode": "live"}
-        return {"status": "ok", "mode": "live"}
+        try:
+            params_query = quote_plus('dc.title all "test"')
+            url = (
+                f"{settings.gallica_sru_base_url}?version=1.2&operation=searchRetrieve"
+                f"&query={params_query}&maximumRecords=1"
+            )
+            async with build_async_client() as client:
+                response = await client.get(url)
+                if response.status_code >= 400:
+                    return {"status": "error", "mode": "live"}
+            return {"status": "ok", "mode": "live"}
+        except Exception:
+            return {"status": "error", "mode": "live"}
 
     async def capabilities(self) -> SourceCapabilities:
         return SourceCapabilities(search=True, get_item=True, resolve_manifest=True)
@@ -123,9 +124,6 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
     async def _fetch_search_records(
         self, query: str, page: int, page_size: int, raw_query: bool = False,
     ) -> list[ET.Element]:
-        if settings.gallica_use_fixtures:
-            raise RuntimeError("fixtures mode enabled")
-
         sru_query = query if raw_query else f'dc.title all "{query}"'
         start_record = ((page - 1) * page_size) + 1
         encoded_query = quote_plus(sru_query)
