@@ -1,9 +1,8 @@
 """Frontend static serving behavior tests."""
 
-from fastapi.testclient import TestClient
-
 from app.config.settings import settings
 from app.main import create_app
+from fastapi.testclient import TestClient
 
 
 def test_root_serves_frontend_index_when_configured(tmp_path) -> None:
