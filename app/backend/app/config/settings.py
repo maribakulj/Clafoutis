@@ -3,10 +3,8 @@
 import re
 from typing import Any
 
-from pydantic import AliasChoices, Field
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 _TRUTHY_TOKENS = {"1", "true", "yes", "on", "enable", "enabled"}
 _FALSY_TOKENS = {"0", "false", "no", "off", "disable", "disabled"}
@@ -85,7 +83,8 @@ class Settings(BaseSettings):
 
         default = cls.model_fields[info.field_name].default
         parsed = _parse_bool_with_fallback(value, default)
-        if isinstance(value, str) and info.field_name.endswith("_use_fixtures") and "fixture" in value.lower():
+        is_fixture_field = info.field_name.endswith("_use_fixtures")
+        if isinstance(value, str) and is_fixture_field and "fixture" in value.lower():
             return True
         return parsed
 

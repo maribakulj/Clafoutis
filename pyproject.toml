@@ -20,6 +20,8 @@ dependencies = [
 dev = [
   "pytest>=8.0,<9.0",
   "pytest-asyncio>=0.23,<1.0",
+  "ruff>=0.4,<1.0",
+  "mypy>=1.10,<2.0",
 ]
 
 [tool.pytest.ini_options]
@@ -29,3 +31,18 @@ pythonpath = [
 testpaths = [
   "app/tests",
 ]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C90"]
+ignore = ["B008"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true

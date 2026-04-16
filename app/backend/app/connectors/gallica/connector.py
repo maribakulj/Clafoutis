@@ -7,13 +7,6 @@ import time
 import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus
 
-try:
-    import defusedxml.ElementTree as SafeET
-except ImportError:
-    SafeET = ET
-
-logger = logging.getLogger(__name__)
-
 from app.config.settings import settings
 from app.connectors.base import BaseConnector
 from app.connectors.gallica.fixtures import FIXTURE_GALLICA_RECORDS
@@ -22,6 +15,13 @@ from app.models.search_models import PartialFailure, SearchResponse
 from app.models.source_models import SourceCapabilities
 from app.utils.http_client import build_async_client
 from app.utils.ids import make_global_id
+
+try:
+    import defusedxml.ElementTree as SafeET
+except ImportError:  # pragma: no cover
+    SafeET = ET  # type: ignore[misc]
+
+logger = logging.getLogger(__name__)
 
 
 class GallicaConnector(BaseConnector):
@@ -256,7 +256,8 @@ class GallicaConnector(BaseConnector):
         return [
             record
             for record in FIXTURE_GALLICA_RECORDS
-            if lowered in str(record["title"]).lower() or lowered in " ".join(record.get("creators", [])).lower()
+            if lowered in str(record["title"]).lower()
+            or lowered in " ".join(record.get("creators", [])).lower()
         ]
 
     def _map_object_type(self, raw_type: str) -> str:

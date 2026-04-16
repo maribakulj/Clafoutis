@@ -142,7 +142,8 @@ class BodleianConnector(BaseConnector):
         return [
             record
             for record in FIXTURE_BODLEIAN_RECORDS
-            if lowered in str(record["title"]).lower() or lowered in " ".join(record.get("creators", [])).lower()
+            if lowered in str(record["title"]).lower()
+            or lowered in " ".join(record.get("creators", [])).lower()
         ]
 
     def _map_live_record(self, record: dict[str, object], index: int) -> NormalizedItem:
