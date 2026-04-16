@@ -9,7 +9,7 @@ from app.services.item_service import ItemService
 router = APIRouter(tags=["items"])
 
 
-@router.get("/item/{global_id}", response_model=NormalizedItem)
+@router.get("/item/{global_id:path}", response_model=NormalizedItem)
 async def get_item(
     global_id: str,
     service: ItemService = Depends(get_item_service),
