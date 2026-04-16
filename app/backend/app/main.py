@@ -1,8 +1,11 @@
 """FastAPI application entrypoint for backend lot 1."""
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -63,7 +66,9 @@ def create_app() -> FastAPI:
                 if full_path.startswith("api/"):
                     return JSONResponse(status_code=404, content={"detail": "Not Found"})
 
-                candidate = frontend_dist / full_path
+                candidate = (frontend_dist / full_path).resolve()
+                if not str(candidate).startswith(str(frontend_dist.resolve())):
+                    return JSONResponse(status_code=400, content={"detail": "Invalid path"})
                 if candidate.is_file():
                     return FileResponse(candidate)
                 return FileResponse(index_file)

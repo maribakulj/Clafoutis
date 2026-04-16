@@ -32,8 +32,10 @@ class BodleianConnector(BaseConnector):
 
         start = time.perf_counter()
         partial_failures: list[PartialFailure]
+        needs_local_pagination = False
 
         if settings.bodleian_use_fixtures:
+            needs_local_pagination = True
             records = self._search_fixtures(query)
             items = [self._map_fixture_record(record, index) for index, record in enumerate(records)]
             partial_failures = [PartialFailure(source=self.name, status="ok")]
@@ -43,6 +45,7 @@ class BodleianConnector(BaseConnector):
                 items = [self._map_live_record(record, index) for index, record in enumerate(records)]
                 partial_failures = [PartialFailure(source=self.name, status="ok")]
             except Exception as exc:
+                needs_local_pagination = True
                 records = self._search_fixtures(query)
                 items = [self._map_fixture_record(record, index) for index, record in enumerate(records)]
                 partial_failures = [
@@ -53,8 +56,11 @@ class BodleianConnector(BaseConnector):
                     )
                 ]
 
-        start_index = (page - 1) * page_size
-        page_items = items[start_index : start_index + page_size]
+        if needs_local_pagination:
+            start_index = (page - 1) * page_size
+            page_items = items[start_index : start_index + page_size]
+        else:
+            page_items = items
 
         return SearchResponse(
             query=query,

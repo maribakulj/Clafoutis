@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 import time
 import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus
+
+try:
+    import defusedxml.ElementTree as SafeET
+except ImportError:
+    SafeET = ET
+
+logger = logging.getLogger(__name__)
 
 from app.config.settings import settings
 from app.connectors.base import BaseConnector
@@ -33,11 +41,13 @@ class GallicaConnector(BaseConnector):
         """Search Gallica through SRU and map records to NormalizedItem."""
 
         start = time.perf_counter()
+        is_fixture_fallback = False
         try:
             records = await self._fetch_search_records(query=query, page=page, page_size=page_size)
             items = [self._map_record(record, index) for index, record in enumerate(records)]
             partial = [PartialFailure(source=self.name, status="ok")]
         except Exception as exc:
+            is_fixture_fallback = True
             records = self._search_fixtures(query)
             items = [self._map_fixture_record(record, index) for index, record in enumerate(records)]
             partial = [
@@ -48,8 +58,11 @@ class GallicaConnector(BaseConnector):
                 )
             ]
 
-        start_index = (page - 1) * page_size
-        page_items = items[start_index : start_index + page_size]
+        if is_fixture_fallback:
+            start_index = (page - 1) * page_size
+            page_items = items[start_index : start_index + page_size]
+        else:
+            page_items = items
 
         return SearchResponse(
             query=query,
@@ -74,8 +87,8 @@ class GallicaConnector(BaseConnector):
             )
             if records:
                 return self._map_record(records[0], 0)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Gallica live get_item failed for %s: %s", source_item_id, exc)
 
         for fixture in FIXTURE_GALLICA_RECORDS:
             if fixture["source_item_id"] == source_item_id:
@@ -148,7 +161,7 @@ class GallicaConnector(BaseConnector):
             response = await client.get(url)
             response.raise_for_status()
 
-        root = ET.fromstring(response.text)
+        root = SafeET.fromstring(response.text)
         return [record for record in root.iter() if record.tag.endswith("record")]
 
     def _map_record(self, record: ET.Element, index: int) -> NormalizedItem:

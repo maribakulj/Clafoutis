@@ -1,8 +1,15 @@
 .git
 .gitignore
+.github
+.env
+.env.*
 .venv
 __pycache__
 *.pyc
 .pytest_cache
+.mypy_cache
+.vscode
+.idea
+*.egg-info
 app/frontend/node_modules
-app/frontend/dist
+docs/

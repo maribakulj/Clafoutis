@@ -40,12 +40,16 @@ class SearchOrchestrator:
 
         merged_results.sort(key=lambda item: item.relevance_score, reverse=True)
 
+        total = len(merged_results)
+        start_index = (request.page - 1) * request.page_size
+        paginated = merged_results[start_index : start_index + request.page_size]
+
         return SearchResponse(
             query=request.query,
             page=request.page,
             page_size=request.page_size,
-            total_estimated=len(merged_results),
-            results=merged_results,
+            total_estimated=total,
+            results=paginated,
             sources_used=sources_used,
             partial_failures=partial_failures,
             duration_ms=duration_ms,

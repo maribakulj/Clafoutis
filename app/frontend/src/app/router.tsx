@@ -1,4 +1,4 @@
-import { Link, Navigate, Route, Routes } from 'react-router-dom'
+import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 
 import { AboutPage } from '../pages/AboutPage'
 import { ImportPage } from '../pages/ImportPage'
@@ -6,26 +6,39 @@ import { ReaderPage } from '../pages/ReaderPage'
 import { SearchPage } from '../pages/SearchPage'
 import { SourcesPage } from '../pages/SourcesPage'
 
+function navClass({ isActive }: { isActive: boolean }) {
+  return `rounded px-2 py-1 ${isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 hover:bg-slate-200'}`
+}
+
+function NotFoundPage() {
+  return (
+    <section className="space-y-2">
+      <h1 className="text-lg font-semibold">Page introuvable</h1>
+      <p className="text-sm text-slate-600">La page demandée n'existe pas.</p>
+    </section>
+  )
+}
+
 function AppLayout() {
   return (
     <div className="mx-auto min-h-screen max-w-7xl p-4">
       <header className="mb-6 rounded-md border border-slate-200 bg-white p-3">
         <nav className="flex flex-wrap gap-3 text-sm">
-          <Link className="rounded bg-slate-100 px-2 py-1 hover:bg-slate-200" to="/search">
+          <NavLink className={navClass} to="/search">
             Recherche
-          </Link>
-          <Link className="rounded bg-slate-100 px-2 py-1 hover:bg-slate-200" to="/reader">
+          </NavLink>
+          <NavLink className={navClass} to="/reader">
             Lecture
-          </Link>
-          <Link className="rounded bg-slate-100 px-2 py-1 hover:bg-slate-200" to="/import">
+          </NavLink>
+          <NavLink className={navClass} to="/import">
             Import
-          </Link>
-          <Link className="rounded bg-slate-100 px-2 py-1 hover:bg-slate-200" to="/sources">
+          </NavLink>
+          <NavLink className={navClass} to="/sources">
             Sources
-          </Link>
-          <Link className="rounded bg-slate-100 px-2 py-1 hover:bg-slate-200" to="/about">
+          </NavLink>
+          <NavLink className={navClass} to="/about">
             À propos
-          </Link>
+          </NavLink>
         </nav>
       </header>
       <Routes>
@@ -35,6 +48,7 @@ function AppLayout() {
         <Route element={<ImportPage />} path="/import" />
         <Route element={<SourcesPage />} path="/sources" />
         <Route element={<AboutPage />} path="/about" />
+        <Route element={<NotFoundPage />} path="*" />
       </Routes>
     </div>
   )
