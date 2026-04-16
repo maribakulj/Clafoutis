@@ -40,12 +40,12 @@ class EuropeanaConnector(FixtureConnectorMixin, BaseConnector):
                 self._map_fixture_record(r, i, default_institution=self._DEFAULT_INSTITUTION)
                 for i, r in enumerate(records)
             ]
-            partial = [PartialFailure(source=self.name, status="ok")]
+            partial: list[PartialFailure] = []
         else:
             try:
                 records = await self._fetch_live_search_records(query=query, page=page, page_size=page_size)
                 items = [self._map_live_record(r, i) for i, r in enumerate(records)]
-                partial = [PartialFailure(source=self.name, status="ok")]
+                partial: list[PartialFailure] = []
             except Exception as exc:
                 needs_local_pagination = True
                 records = self._search_fixtures(query, FIXTURE_EUROPEANA_RECORDS)

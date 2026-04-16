@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 from app.connectors.base import BaseConnector
 from app.models.normalized_item import NormalizedItem
-from app.models.search_models import PartialFailure, SearchResponse
+from app.models.search_models import SearchResponse
 from app.models.source_models import SourceCapabilities
 
 
@@ -33,7 +33,7 @@ class ManifestByUrlConnector(BaseConnector):
             total_estimated=0,
             results=[],
             sources_used=[self.name],
-            partial_failures=[PartialFailure(source=self.name, status="ok")],
+            partial_failures=[],
             duration_ms=1,
         )
 

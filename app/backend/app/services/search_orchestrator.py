@@ -36,19 +36,24 @@ class SearchOrchestrator:
                 continue
             sources_used.append(source_name)
             merged_results.extend(outcome.results)
-            partial_failures.extend(outcome.partial_failures)
+            # Only propagate actual failures, not status="ok" entries
+            for pf in outcome.partial_failures:
+                if pf.status != "ok":
+                    partial_failures.append(pf)
 
         merged_results.sort(key=lambda item: item.relevance_score, reverse=True)
 
         total = len(merged_results)
         start_index = (request.page - 1) * request.page_size
-        paginated = merged_results[start_index : start_index + request.page_size]
+        end_index = start_index + request.page_size
+        paginated = merged_results[start_index:end_index]
 
         return SearchResponse(
             query=request.query,
             page=request.page,
             page_size=request.page_size,
             total_estimated=total,
+            has_next_page=end_index < total,
             results=paginated,
             sources_used=sources_used,
             partial_failures=partial_failures,

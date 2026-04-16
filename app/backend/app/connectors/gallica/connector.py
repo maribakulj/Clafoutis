@@ -45,7 +45,7 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
         try:
             records = await self._fetch_search_records(query=query, page=page, page_size=page_size)
             items = [self._map_record(record, index) for index, record in enumerate(records)]
-            partial = [PartialFailure(source=self.name, status="ok")]
+            partial: list[PartialFailure] = []
         except Exception as exc:
             needs_local_pagination = True
             records = self._search_fixtures(query, FIXTURE_GALLICA_RECORDS)

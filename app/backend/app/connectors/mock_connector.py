@@ -2,7 +2,7 @@
 
 from app.connectors.base import BaseConnector
 from app.models.normalized_item import NormalizedItem
-from app.models.search_models import PartialFailure, SearchResponse
+from app.models.search_models import SearchResponse
 from app.models.source_models import SourceCapabilities
 from app.utils.ids import make_global_id
 
@@ -73,7 +73,7 @@ class MockConnector(BaseConnector):
             total_estimated=len(filtered),
             results=page_items,
             sources_used=[self.name],
-            partial_failures=[PartialFailure(source=self.name, status="ok")],
+            partial_failures=[],
             duration_ms=1,
         )
 
