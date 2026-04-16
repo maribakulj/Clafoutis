@@ -21,7 +21,7 @@ export function ReaderPage() {
   const manifestUrls = viewMode === 'compare' ? selectedManifestUrls : openManifestUrls
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4" aria-label="Espace de lecture">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Lecture</h1>
         <Link className="rounded border border-slate-300 px-3 py-1 text-sm" to="/search">
@@ -32,26 +32,29 @@ export function ReaderPage() {
       <p className="text-sm text-slate-600">Mirador est utilisé ici uniquement comme workspace de lecture.</p>
 
       <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white p-3 text-sm">
-        <label className="flex items-center gap-2">
-          <input
-            checked={viewMode === 'single'}
-            type="radio"
-            name="viewMode"
-            value="single"
-            onChange={() => setViewMode('single')}
-          />
-          Vue simple ({openManifestUrls.length})
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            checked={viewMode === 'compare'}
-            type="radio"
-            name="viewMode"
-            value="compare"
-            onChange={() => setViewMode('compare')}
-          />
-          Vue comparaison ({selectedManifestUrls.length})
-        </label>
+        <fieldset className="flex flex-wrap items-center gap-3">
+          <legend className="sr-only">Mode de vue</legend>
+          <label className="flex items-center gap-2">
+            <input
+              checked={viewMode === 'single'}
+              type="radio"
+              name="viewMode"
+              value="single"
+              onChange={() => setViewMode('single')}
+            />
+            Vue simple ({openManifestUrls.length})
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              checked={viewMode === 'compare'}
+              type="radio"
+              name="viewMode"
+              value="compare"
+              onChange={() => setViewMode('compare')}
+            />
+            Vue comparaison ({selectedManifestUrls.length})
+          </label>
+        </fieldset>
         <label className="flex items-center gap-2">
           <input
             checked={showMetadata}

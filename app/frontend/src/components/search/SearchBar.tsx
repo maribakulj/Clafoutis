@@ -14,12 +14,19 @@ export function SearchBar({ initialQuery, onSubmit }: SearchBarProps) {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    onSubmit(query.trim())
+    const trimmed = query.trim()
+    if (trimmed) {
+      onSubmit(trimmed)
+    }
   }
 
   return (
-    <form className="flex gap-2" onSubmit={handleSubmit}>
+    <form className="flex gap-2" role="search" aria-label="Recherche patrimoniale" onSubmit={handleSubmit}>
+      <label htmlFor="search-input" className="sr-only">
+        Rechercher un objet patrimonial
+      </label>
       <input
+        id="search-input"
         className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
         placeholder="Rechercher un objet patrimonial"
         value={query}

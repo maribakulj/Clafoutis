@@ -15,11 +15,15 @@ export function ResultsGrid({
   onPrepareRead,
 }: ResultsGridProps) {
   if (items.length === 0) {
-    return <p className="rounded-md border border-dashed border-slate-300 p-6 text-sm">Aucun résultat.</p>
+    return (
+      <p className="rounded-md border border-dashed border-slate-300 p-6 text-sm" role="status">
+        Aucun résultat.
+      </p>
+    )
   }
 
   return (
-    <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label={`${items.length} résultats`}>
       {items.map((item) => (
         <ResultCard
           key={item.id}
