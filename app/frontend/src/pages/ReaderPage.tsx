@@ -37,6 +37,7 @@ export function ReaderPage() {
             checked={viewMode === 'single'}
             type="radio"
             name="viewMode"
+            value="single"
             onChange={() => setViewMode('single')}
           />
           Vue simple ({openManifestUrls.length})
@@ -46,6 +47,7 @@ export function ReaderPage() {
             checked={viewMode === 'compare'}
             type="radio"
             name="viewMode"
+            value="compare"
             onChange={() => setViewMode('compare')}
           />
           Vue comparaison ({selectedManifestUrls.length})
@@ -64,9 +66,6 @@ export function ReaderPage() {
         manifestUrls={manifestUrls}
         initialView={viewMode}
         showMetadata={showMetadata}
-        onStateChange={() => {
-          // Lot 3: hook kept minimal for future share/persistence extensions.
-        }}
       />
     </section>
   )

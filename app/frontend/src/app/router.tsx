@@ -1,10 +1,13 @@
+import { lazy, Suspense } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 
-import { AboutPage } from '../pages/AboutPage'
-import { ImportPage } from '../pages/ImportPage'
-import { ReaderPage } from '../pages/ReaderPage'
-import { SearchPage } from '../pages/SearchPage'
-import { SourcesPage } from '../pages/SourcesPage'
+import { ErrorBoundary } from '../components/ErrorBoundary'
+
+const SearchPage = lazy(() => import('../pages/SearchPage').then((m) => ({ default: m.SearchPage })))
+const ReaderPage = lazy(() => import('../pages/ReaderPage').then((m) => ({ default: m.ReaderPage })))
+const ImportPage = lazy(() => import('../pages/ImportPage').then((m) => ({ default: m.ImportPage })))
+const SourcesPage = lazy(() => import('../pages/SourcesPage').then((m) => ({ default: m.SourcesPage })))
+const AboutPage = lazy(() => import('../pages/AboutPage').then((m) => ({ default: m.AboutPage })))
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `rounded px-2 py-1 ${isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 hover:bg-slate-200'}`
@@ -17,6 +20,10 @@ function NotFoundPage() {
       <p className="text-sm text-slate-600">La page demandée n'existe pas.</p>
     </section>
   )
+}
+
+function PageFallback() {
+  return <p className="text-sm text-slate-600">Chargement...</p>
 }
 
 function AppLayout() {
@@ -41,15 +48,19 @@ function AppLayout() {
           </NavLink>
         </nav>
       </header>
-      <Routes>
-        <Route element={<Navigate replace to="/search" />} path="/" />
-        <Route element={<SearchPage />} path="/search" />
-        <Route element={<ReaderPage />} path="/reader" />
-        <Route element={<ImportPage />} path="/import" />
-        <Route element={<SourcesPage />} path="/sources" />
-        <Route element={<AboutPage />} path="/about" />
-        <Route element={<NotFoundPage />} path="*" />
-      </Routes>
+      <ErrorBoundary>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            <Route element={<Navigate replace to="/search" />} path="/" />
+            <Route element={<SearchPage />} path="/search" />
+            <Route element={<ReaderPage />} path="/reader" />
+            <Route element={<ImportPage />} path="/import" />
+            <Route element={<SourcesPage />} path="/sources" />
+            <Route element={<AboutPage />} path="/about" />
+            <Route element={<NotFoundPage />} path="*" />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }

@@ -1,3 +1,5 @@
+import { useCallback } from 'react'
+
 import { SearchBar } from '../components/search/SearchBar'
 import { SearchFilters } from '../components/search/SearchFilters'
 import { ResultsGrid } from '../components/search/ResultsGrid'
@@ -21,26 +23,32 @@ export function SearchPage() {
 
   const search = useSearch()
 
-  const triggerSearch = (newQuery: string) => {
-    if (!newQuery) {
-      return
-    }
-    setQuery(newQuery)
-    const payload: SearchRequest = {
-      query: newQuery,
-      sources: filters.sources.length > 0 ? filters.sources : undefined,
-      filters: filters.hasIiifOnly ? { has_iiif_manifest: true } : {},
-      page: 1,
-      page_size: 24,
-    }
-    search.mutate(payload)
-  }
+  const triggerSearch = useCallback(
+    (newQuery: string) => {
+      if (!newQuery) {
+        return
+      }
+      setQuery(newQuery)
+      const payload: SearchRequest = {
+        query: newQuery,
+        sources: filters.sources.length > 0 ? filters.sources : undefined,
+        filters: filters.hasIiifOnly ? { has_iiif_manifest: true } : {},
+        page: 1,
+        page_size: 24,
+      }
+      search.mutate(payload)
+    },
+    [filters, setQuery, search],
+  )
 
-  const prepareRead = (item: NormalizedItem) => {
-    const urls = item.manifest_url ? [item.manifest_url] : []
-    setOpenManifestUrls(urls)
-    setViewMode('single')
-  }
+  const prepareRead = useCallback(
+    (item: NormalizedItem) => {
+      const urls = item.manifest_url ? [item.manifest_url] : []
+      setOpenManifestUrls(urls)
+      setViewMode('single')
+    },
+    [setOpenManifestUrls, setViewMode],
+  )
 
   return (
     <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
@@ -48,7 +56,7 @@ export function SearchPage() {
       <main className="space-y-4">
         <SearchBar initialQuery={query} onSubmit={triggerSearch} />
 
-        {search.isPending && <p className="text-sm text-slate-600">Chargement des résultats…</p>}
+        {search.isPending && <p className="text-sm text-slate-600">Chargement des résultats...</p>}
         {search.isError && (
           <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">
             Erreur: {search.error.message}
