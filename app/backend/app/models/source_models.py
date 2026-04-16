@@ -7,7 +7,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 ProbeStatus = Literal["supported", "not_supported", "timeout", "failed", "skipped"]
 
 

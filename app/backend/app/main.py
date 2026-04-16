@@ -1,5 +1,6 @@
 """FastAPI application entrypoint for backend lot 1."""
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -12,6 +13,42 @@ from app.config.settings import settings
 from app.models.error_models import ErrorResponse
 from app.utils.errors import AppError, BadRequestError, NotFoundError
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+
+
+def _mount_frontend(application: FastAPI) -> None:
+    """Mount built frontend SPA assets and catch-all route."""
+
+    frontend_dist = Path(settings.frontend_dist_dir)
+    index_file = frontend_dist / "index.html"
+
+    if not index_file.exists():
+        return
+
+    assets_dir = frontend_dist / "assets"
+    if assets_dir.exists():
+        application.mount(
+            "/assets",
+            StaticFiles(directory=str(assets_dir)),
+            name="frontend-assets",
+        )
+
+    @application.get("/", include_in_schema=False)
+    async def serve_frontend_index() -> FileResponse:
+        return FileResponse(index_file)
+
+    @application.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend_spa(full_path: str):
+        if full_path.startswith("api/"):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+
+        candidate = (frontend_dist / full_path).resolve()
+        if not str(candidate).startswith(str(frontend_dist.resolve())):
+            return JSONResponse(status_code=400, content={"detail": "Invalid path"})
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(index_file)
+
 
 def create_app() -> FastAPI:
     """Create and configure FastAPI application."""
@@ -20,9 +57,9 @@ def create_app() -> FastAPI:
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allow_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type", "Accept"],
     )
     application.include_router(api_router)
 
@@ -42,31 +79,7 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=500, content=payload)
 
     if settings.serve_frontend:
-        frontend_dist = Path(settings.frontend_dist_dir)
-        index_file = frontend_dist / "index.html"
-
-        if index_file.exists():
-            assets_dir = frontend_dist / "assets"
-            if assets_dir.exists():
-                application.mount(
-                    "/assets",
-                    StaticFiles(directory=str(assets_dir)),
-                    name="frontend-assets",
-                )
-
-            @application.get("/", include_in_schema=False)
-            async def serve_frontend_index() -> FileResponse:
-                return FileResponse(index_file)
-
-            @application.get("/{full_path:path}", include_in_schema=False)
-            async def serve_frontend_spa(full_path: str):
-                if full_path.startswith("api/"):
-                    return JSONResponse(status_code=404, content={"detail": "Not Found"})
-
-                candidate = frontend_dist / full_path
-                if candidate.is_file():
-                    return FileResponse(candidate)
-                return FileResponse(index_file)
+        _mount_frontend(application)
 
     return application
 

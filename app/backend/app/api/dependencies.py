@@ -2,6 +2,10 @@
 
 from functools import lru_cache
 
+from app.connectors.bodleian import BodleianConnector
+from app.connectors.europeana import EuropeanaConnector
+from app.connectors.gallica import GallicaConnector
+from app.connectors.manifest_by_url_connector import ManifestByUrlConnector
 from app.connectors.mock_connector import MockConnector
 from app.connectors.registry import ConnectorRegistry
 from app.services.import_service import ImportService
@@ -13,10 +17,14 @@ from app.services.source_service import SourceService
 
 @lru_cache(maxsize=1)
 def get_registry() -> ConnectorRegistry:
-    """Create and cache connector registry with MVP connectors."""
+    """Create and cache connector registry with all connectors."""
 
     registry = ConnectorRegistry()
     registry.register(MockConnector())
+    registry.register(GallicaConnector())
+    registry.register(EuropeanaConnector())
+    registry.register(BodleianConnector())
+    registry.register(ManifestByUrlConnector())
     return registry
 
 

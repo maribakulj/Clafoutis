@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import ipaddress
+import logging
 import socket
 from urllib.parse import urlparse
 
 from app.utils.errors import BadRequestError
+
+logger = logging.getLogger(__name__)
 
 
 def _is_forbidden_ip(ip_text: str) -> bool:
@@ -38,12 +41,12 @@ def _validate_host_ssrf(host: str) -> None:
     except ValueError:
         pass
 
-    # DNS host.
+    # DNS host -- reject if resolution fails (prevents DNS rebinding bypass).
     try:
         infos = socket.getaddrinfo(lowered, None)
     except socket.gaierror:
-        # Keep MVP permissive for public domains that are not resolvable in local/offline envs.
-        return
+        logger.warning("DNS resolution failed for host %s, rejecting", lowered)
+        raise BadRequestError("URL host could not be resolved") from None
 
     for info in infos:
         ip_text = info[4][0]
@@ -52,7 +55,7 @@ def _validate_host_ssrf(host: str) -> None:
 
 
 def validate_http_url(url: str) -> str:
-    """Validate URL syntax and enforce MVP SSRF restrictions on host and scheme."""
+    """Validate URL syntax and enforce SSRF restrictions on host and scheme."""
 
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"}:

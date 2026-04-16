@@ -1,5 +1,7 @@
 """Models for manifest resolution operations."""
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -17,5 +19,5 @@ class ResolveManifestResponse(BaseModel):
     """Output payload for manifest resolution."""
 
     manifest_url: str | None = None
-    status: str
+    status: Literal["resolved", "not_found"]
     method: str | None = None

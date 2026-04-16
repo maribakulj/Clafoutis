@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -39,7 +39,7 @@ class CapabilityProber:
         if not snapshot.probe_timestamp:
             return False
         ttl = timedelta(seconds=settings.capability_probe_cache_ttl_seconds)
-        return datetime.now(timezone.utc) - snapshot.probe_timestamp <= ttl
+        return datetime.now(UTC) - snapshot.probe_timestamp <= ttl
 
     def merge_capabilities(
         self,
@@ -76,7 +76,7 @@ class CapabilityProber:
         if cached and self._is_cache_valid(cached):
             return cached
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if not settings.enable_capability_probing:
             effective, warnings = self.merge_capabilities(declared, None)

@@ -1,5 +1,7 @@
 """Models for search requests and responses."""
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.normalized_item import NormalizedItem
@@ -18,10 +20,10 @@ class SearchRequest(BaseModel):
 
 
 class PartialFailure(BaseModel):
-    """Per-source failure report for partial success responses."""
+    """Per-source failure report. Only present when a source had issues."""
 
     source: str
-    status: str
+    status: Literal["degraded", "error"]
     error: str | None = None
 
 
@@ -32,6 +34,7 @@ class SearchResponse(BaseModel):
     page: int
     page_size: int
     total_estimated: int
+    has_next_page: bool = False
     results: list[NormalizedItem]
     sources_used: list[str]
     partial_failures: list[PartialFailure] = Field(default_factory=list)

@@ -2,7 +2,7 @@ import type { NormalizedItem } from './normalized'
 
 export interface PartialFailure {
   source: string
-  status: string
+  status: 'degraded' | 'error'
   error: string | null
 }
 
@@ -19,6 +19,7 @@ export interface SearchResponse {
   page: number
   page_size: number
   total_estimated: number
+  has_next_page: boolean
   results: NormalizedItem[]
   sources_used: string[]
   partial_failures: PartialFailure[]

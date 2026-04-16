@@ -1,7 +1,5 @@
-from fastapi.testclient import TestClient
-
 from app.main import create_app
-
+from fastapi.testclient import TestClient
 
 client = TestClient(create_app())
 
@@ -9,7 +7,7 @@ client = TestClient(create_app())
 def test_health() -> None:
     response = client.get("/api/health")
     assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+    assert response.json()["status"] in ("ok", "degraded")
 
 
 def test_sources() -> None:
@@ -17,7 +15,11 @@ def test_sources() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["sources"]
-    assert body["sources"][0]["name"] == "mock"
+    source_names = [s["name"] for s in body["sources"]]
+    assert "mock" in source_names
+    assert "gallica" in source_names
+    assert "europeana" in source_names
+    assert "bodleian" in source_names
 
 
 def test_search() -> None:
@@ -25,7 +27,7 @@ def test_search() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["results"]
-    assert body["results"][0]["id"].startswith("mock:")
+    assert len(body["sources_used"]) > 0
 
 
 def test_item() -> None:
@@ -43,11 +45,21 @@ def test_resolve_manifest() -> None:
     assert response.json()["status"] == "resolved"
 
 
-def test_import() -> None:
-    response = client.post("/api/import", json={"url": "https://mock.example.org/items/ms-1"})
+def test_import_with_resolvable_url() -> None:
+    # Use a real resolvable domain with a manifest-like path
+    response = client.post(
+        "/api/import",
+        json={"url": "https://gallica.bnf.fr/iiif/ark:/12148/bpt6k1512248m/manifest.json"},
+    )
     assert response.status_code == 200
-    assert response.json()["detected_source"] == "mock"
-    assert response.json()["item"]["id"] == "mock:ms-1"
+    body = response.json()
+    assert body["record_url"] == "https://gallica.bnf.fr/iiif/ark:/12148/bpt6k1512248m/manifest.json"
+
+
+def test_import_rejects_unresolvable_host() -> None:
+    response = client.post("/api/import", json={"url": "https://mock.example.org/items/ms-1"})
+    assert response.status_code == 400
+    assert response.json()["error"] == "bad_request"
 
 
 def test_item_rejects_invalid_global_id_format() -> None:

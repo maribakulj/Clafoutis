@@ -5,6 +5,11 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from urllib.parse import urlencode
 
+try:
+    import defusedxml.ElementTree as SafeET
+except ImportError:
+    SafeET = ET
+
 from app.config.settings import settings
 from app.models.source_models import RuntimeCapabilities
 from app.utils.http_client import build_async_client
@@ -54,7 +59,7 @@ class SRUCapabilityProbe:
         params = urlencode({"version": "1.2", "operation": "explain"})
         explain_url = f"{endpoint}?{params}"
 
-        async with await build_async_client() as client:
+        async with build_async_client() as client:
             response = await client.get(explain_url, timeout=settings.capability_probe_timeout_seconds)
             response.raise_for_status()
             return response.text
@@ -62,7 +67,7 @@ class SRUCapabilityProbe:
     def parse_explain(self, xml_payload: str) -> RuntimeCapabilities:
         """Infer a minimal runtime capability set from Explain XML payload."""
 
-        root = ET.fromstring(xml_payload)
+        root = SafeET.fromstring(xml_payload)
         titles = [
             (node.text or "").strip().lower()
             for node in root.iter()

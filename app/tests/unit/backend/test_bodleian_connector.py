@@ -5,16 +5,19 @@ from app.connectors.bodleian import BodleianConnector
 
 
 def test_bodleian_search_returns_normalized_items_in_fixture_mode() -> None:
+    original = settings.bodleian_use_fixtures
     settings.bodleian_use_fixtures = True
-    connector = BodleianConnector()
+    try:
+        connector = BodleianConnector()
+        response = asyncio.run(connector.search(query="dante", filters={}, page=1, page_size=10))
 
-    response = asyncio.run(connector.search(query="dante", filters={}, page=1, page_size=10))
-
-    assert response.results
-    first = response.results[0]
-    assert first.source == "bodleian"
-    assert first.id.startswith("bodleian:")
-    assert first.manifest_url is not None
+        assert response.results
+        first = response.results[0]
+        assert first.source == "bodleian"
+        assert first.id.startswith("bodleian:")
+        assert first.manifest_url is not None
+    finally:
+        settings.bodleian_use_fixtures = original
 
 
 def test_bodleian_resolve_manifest_from_record_url() -> None:

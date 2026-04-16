@@ -29,27 +29,35 @@ export function MiradorWorkspace({
   onStateChange,
 }: MiradorWorkspaceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const onStateChangeRef = useRef(onStateChange)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Keep callback ref in sync without triggering effect re-runs
+  onStateChangeRef.current = onStateChange
 
   const stableUrls = useMemo(
-    () => Array.from(new Set(manifestUrls.filter((manifestUrl) => manifestUrl.length > 0))),
-    [manifestUrls],
+    () => Array.from(new Set(manifestUrls.filter((u) => u.length > 0))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(manifestUrls)],
   )
 
   useEffect(() => {
-    if (!containerRef.current || stableUrls.length === 0) {
+    const container = containerRef.current
+    if (!container || stableUrls.length === 0) {
       return
     }
 
     let isMounted = true
     let unsubscribe: (() => void) | undefined
+    setIsLoading(true)
 
     async function mountMirador() {
       try {
         const module = (await import('mirador')) as unknown as { default?: MiradorModule } & MiradorModule
         const mirador = module.default ?? module
 
-        if (!isMounted || !containerRef.current) {
+        if (!isMounted || !container) {
           return
         }
 
@@ -59,12 +67,12 @@ export function MiradorWorkspace({
           showMetadata,
         })
 
-        containerRef.current.innerHTML = ''
-        const instance = mirador.viewer(config, containerRef.current)
+        container.innerHTML = ''
+        const instance = mirador.viewer(config, container)
 
-        if (onStateChange && instance.store) {
+        if (instance.store) {
           unsubscribe = instance.store.subscribe(() => {
-            onStateChange(instance.store?.getState())
+            onStateChangeRef.current?.(instance.store?.getState())
           })
         }
 
@@ -73,6 +81,10 @@ export function MiradorWorkspace({
         if (isMounted) {
           setLoadError(error instanceof Error ? error.message : 'Unable to initialize Mirador')
         }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
@@ -80,14 +92,12 @@ export function MiradorWorkspace({
 
     return () => {
       isMounted = false
-      if (unsubscribe) {
-        unsubscribe()
-      }
-      if (containerRef.current) {
-        containerRef.current.innerHTML = ''
+      unsubscribe?.()
+      if (container) {
+        container.innerHTML = ''
       }
     }
-  }, [stableUrls, initialView, showMetadata, onStateChange])
+  }, [stableUrls, initialView, showMetadata])
 
   if (stableUrls.length === 0) {
     return (
@@ -105,5 +115,10 @@ export function MiradorWorkspace({
     )
   }
 
-  return <div ref={containerRef} className="min-h-[70vh] rounded-md border border-slate-200 bg-white" />
+  return (
+    <>
+      {isLoading && <p className="text-sm text-slate-600">Chargement de Mirador...</p>}
+      <div ref={containerRef} className="min-h-[70vh] rounded-md border border-slate-200 bg-white" />
+    </>
+  )
 }

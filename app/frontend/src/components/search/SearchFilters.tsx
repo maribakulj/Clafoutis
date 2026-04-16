@@ -10,11 +10,11 @@ export function SearchFilters({ value, onChange }: SearchFiltersProps) {
   const sourcesQuery = useSources()
 
   return (
-    <aside className="space-y-4 rounded-md border border-slate-200 bg-white p-4">
+    <aside className="space-y-4 rounded-md border border-slate-200 bg-white p-4" aria-label="Filtres de recherche">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Filtres</h2>
 
-      <div>
-        <p className="mb-2 text-sm font-medium">Sources</p>
+      <fieldset>
+        <legend className="mb-2 text-sm font-medium">Sources</legend>
         <div className="space-y-2">
           {(sourcesQuery.data?.sources ?? []).map((source) => {
             const checked = value.sources.includes(source.name)
@@ -35,7 +35,7 @@ export function SearchFilters({ value, onChange }: SearchFiltersProps) {
             )
           })}
         </div>
-      </div>
+      </fieldset>
 
       <label className="flex items-center gap-2 text-sm">
         <input

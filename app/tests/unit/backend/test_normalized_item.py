@@ -1,10 +1,10 @@
-from pydantic import ValidationError
-
+import pytest
 from app.models.normalized_item import NormalizedItem
+from pydantic import ValidationError
 
 
 def test_normalized_item_enforces_global_id_policy() -> None:
-    try:
+    with pytest.raises(ValidationError):
         NormalizedItem(
             id="wrong:ms-1",
             source="mock",
@@ -12,6 +12,3 @@ def test_normalized_item_enforces_global_id_policy() -> None:
             source_item_id="ms-1",
             title="Item",
         )
-        assert False, "NormalizedItem should enforce source:source_item_id id policy"
-    except ValidationError:
-        pass

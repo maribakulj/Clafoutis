@@ -17,8 +17,8 @@ class ItemService:
 
         try:
             source, source_item_id = split_global_id(global_id)
-        except ValueError:
-            raise BadRequestError("Invalid id format, expected source:source_item_id")
+        except ValueError as err:
+            raise BadRequestError("Invalid id format, expected source:source_item_id") from err
         if not self._registry.has(source):
             raise NotFoundError(f"Unknown source '{source}'")
         item = await self._registry.get(source).get_item(source_item_id)

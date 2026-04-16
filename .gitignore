@@ -1,6 +1,21 @@
 __pycache__/
 *.pyc
+*.egg-info/
 .venv/
+.env
+.env.*
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
 
 app/frontend/node_modules/
 app/frontend/dist/
+
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+*.log

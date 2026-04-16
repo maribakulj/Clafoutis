@@ -18,12 +18,14 @@ WORKDIR /app
 
 COPY pyproject.toml ./
 COPY app/backend ./app/backend
-COPY app/tests ./app/tests
-COPY specs.md PLANS.md AGENTS.md README.md ./
 COPY --from=frontend-builder /app/app/frontend/dist ./app/frontend/dist
 COPY scripts/start.sh ./scripts/start.sh
 
-RUN pip install --upgrade pip && pip install -e .
+RUN pip install --upgrade pip && pip install . && \
+    chmod +x scripts/start.sh
+
+RUN useradd -m -u 1000 appuser
+USER appuser
 
 EXPOSE 7860
 

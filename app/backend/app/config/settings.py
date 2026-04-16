@@ -3,10 +3,8 @@
 import re
 from typing import Any
 
-from pydantic import AliasChoices, Field
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 _TRUTHY_TOKENS = {"1", "true", "yes", "on", "enable", "enabled"}
 _FALSY_TOKENS = {"0", "false", "no", "off", "disable", "disabled"}
@@ -51,12 +49,12 @@ class Settings(BaseSettings):
     serve_frontend: bool = True
     frontend_dist_dir: str = "app/frontend/dist"
 
-    # Connector settings (fixture-first for MVP demo stability)
-    gallica_use_fixtures: bool = True
+    # Connector settings (live by default, fixtures as fallback on error)
+    gallica_use_fixtures: bool = False
     gallica_sru_base_url: str = "https://gallica.bnf.fr/SRU"
-    bodleian_use_fixtures: bool = True
+    bodleian_use_fixtures: bool = False
     bodleian_api_base_url: str = "https://api.bodleian.ox.ac.uk/iiif"
-    europeana_use_fixtures: bool = True
+    europeana_use_fixtures: bool = False
     europeana_api_base_url: str = "https://api.europeana.eu/record/v2/search.json"
     europeana_api_key: str = Field(
         default="",
@@ -65,7 +63,7 @@ class Settings(BaseSettings):
 
     # Runtime capability probing
     enable_capability_probing: bool = True
-    capability_probe_use_fixtures: bool = True
+    capability_probe_use_fixtures: bool = False
     capability_probe_timeout_seconds: float = Field(default=3.0, gt=0)
     capability_probe_cache_ttl_seconds: int = Field(default=300, ge=0)
 
@@ -85,7 +83,8 @@ class Settings(BaseSettings):
 
         default = cls.model_fields[info.field_name].default
         parsed = _parse_bool_with_fallback(value, default)
-        if isinstance(value, str) and info.field_name.endswith("_use_fixtures") and "fixture" in value.lower():
+        is_fixture_field = info.field_name.endswith("_use_fixtures")
+        if isinstance(value, str) and is_fixture_field and "fixture" in value.lower():
             return True
         return parsed
 

@@ -1,3 +1,4 @@
+import pytest
 from app.utils.ids import make_global_id, split_global_id
 
 
@@ -8,8 +9,5 @@ def test_global_id_roundtrip() -> None:
 
 
 def test_split_global_id_rejects_invalid_values() -> None:
-    try:
+    with pytest.raises(ValueError):
         split_global_id("invalid")
-        assert False, "split_global_id should reject ids without ':'"
-    except ValueError:
-        pass
