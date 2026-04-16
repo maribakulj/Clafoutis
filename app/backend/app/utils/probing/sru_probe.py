@@ -59,7 +59,7 @@ class SRUCapabilityProbe:
         params = urlencode({"version": "1.2", "operation": "explain"})
         explain_url = f"{endpoint}?{params}"
 
-        async with await build_async_client() as client:
+        async with build_async_client() as client:
             response = await client.get(explain_url, timeout=settings.capability_probe_timeout_seconds)
             response.raise_for_status()
             return response.text
