@@ -5,25 +5,18 @@ from app.main import create_app
 from fastapi.testclient import TestClient
 
 
-def test_root_serves_frontend_index_when_configured(tmp_path) -> None:
+def test_root_serves_frontend_index_when_configured(monkeypatch, tmp_path) -> None:
     """Root path should serve SPA index when frontend serving is enabled."""
 
-    original_serve_frontend = settings.serve_frontend
-    original_frontend_dist_dir = settings.frontend_dist_dir
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    (dist_dir / "index.html").write_text("<html><body>Clafoutis UI</body></html>", encoding="utf-8")
 
-    try:
-        dist_dir = tmp_path / "dist"
-        dist_dir.mkdir()
-        (dist_dir / "index.html").write_text("<html><body>Clafoutis UI</body></html>", encoding="utf-8")
+    monkeypatch.setattr(settings, "serve_frontend", True)
+    monkeypatch.setattr(settings, "frontend_dist_dir", str(dist_dir))
 
-        settings.serve_frontend = True
-        settings.frontend_dist_dir = str(dist_dir)
+    client = TestClient(create_app())
+    response = client.get("/")
 
-        client = TestClient(create_app())
-        response = client.get("/")
-
-        assert response.status_code == 200
-        assert "Clafoutis UI" in response.text
-    finally:
-        settings.serve_frontend = original_serve_frontend
-        settings.frontend_dist_dir = original_frontend_dist_dir
+    assert response.status_code == 200
+    assert "Clafoutis UI" in response.text

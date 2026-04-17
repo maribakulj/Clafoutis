@@ -40,7 +40,7 @@ class _StubConnector(BaseConnector):
                 source=self.name,
                 source_label=self.label,
                 source_item_id=f"{self.name}-{i}",
-                title=f"Item {i}",
+                title=f"{self.name} Item {i}",
                 relevance_score=1.0 - (i * 0.01),
             )
             for i in range(start, end)

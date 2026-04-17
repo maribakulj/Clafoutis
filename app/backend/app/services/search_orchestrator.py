@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
+import unicodedata
 
 from app.config.settings import settings
 from app.connectors.registry import ConnectorRegistry
@@ -32,6 +34,13 @@ class SearchOrchestrator:
         cross-source results); it simply interleaves results ordered by
         relevance and reports ``has_next_page`` when *any* source suggests
         more results exist.
+
+        Ranking: each item gets a small completeness bonus on top of its
+        source-native relevance score (presence of a manifest, thumbnail,
+        creators, date). Items sharing a manifest URL or normalized
+        (title, date) are deduplicated weakly — the highest-scoring
+        duplicate wins; we never collapse distinct sources aggressively
+        per specs §16.2.
 
         Robustness: each per-source task is individually wrapped in a
         ``asyncio.wait_for`` using ``request_timeout_seconds`` so a single
@@ -80,7 +89,8 @@ class SearchOrchestrator:
         merged_results = [
             item for item in merged_results if _matches_filters(item, request.filters)
         ]
-        merged_results.sort(key=lambda item: item.relevance_score, reverse=True)
+        merged_results = _rerank(merged_results)
+        merged_results = _deduplicate(merged_results)
 
         return SearchResponse(
             query=request.query,
@@ -126,3 +136,83 @@ def _matches_filters(item: NormalizedItem, filters: SearchFilters) -> bool:
     # Note: languages filter is declared but not yet populated on NormalizedItem;
     # keep it a no-op for now, forward-compatible.
     return not (filters.object_type and item.object_type not in filters.object_type)
+
+
+def _completeness_bonus(item: NormalizedItem) -> float:
+    """Small additive bonus rewarding richer records (keeps score in [0,1])."""
+
+    bonus = 0.0
+    if item.has_iiif_manifest:
+        bonus += 0.05
+    if item.thumbnail_url:
+        bonus += 0.02
+    if item.creators:
+        bonus += 0.01
+    if item.date_display:
+        bonus += 0.01
+    if item.institution:
+        bonus += 0.005
+    return bonus
+
+
+def _rerank(items: list[NormalizedItem]) -> list[NormalizedItem]:
+    """Sort items by adjusted score (native relevance + completeness bonus)."""
+
+    return sorted(
+        items,
+        key=lambda item: item.relevance_score + _completeness_bonus(item),
+        reverse=True,
+    )
+
+
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _normalize_title(value: str) -> str:
+    """Normalize a title for weak duplicate detection.
+
+    Strips accents, lowercases, collapses whitespace and punctuation. The
+    purpose is comparison only; never store or display the normalized form.
+    """
+
+    decomposed = unicodedata.normalize("NFKD", value)
+    without_marks = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    lowered = without_marks.lower()
+    cleaned = re.sub(r"[^a-z0-9\s]", " ", lowered)
+    return _WHITESPACE_RE.sub(" ", cleaned).strip()
+
+
+def _deduplicate(items: list[NormalizedItem]) -> list[NormalizedItem]:
+    """Collapse obvious duplicates while preserving source diversity.
+
+    Policy:
+    - Two items sharing a non-empty ``manifest_url`` are considered the
+      same object — keep the first (highest-ranked).
+    - Two items whose normalized ``(title, date_display)`` tuple matches
+      are considered a soft duplicate — keep the first.
+
+    Items are assumed to be pre-sorted by rank so the survivor is the
+    best-ranked one. Nothing is fused cross-source: a weak match still
+    yields a single item rather than synthesizing a merged record.
+    """
+
+    seen_manifests: set[str] = set()
+    seen_soft_keys: set[tuple[str, str | None]] = set()
+    unique: list[NormalizedItem] = []
+
+    for item in items:
+        if item.manifest_url:
+            if item.manifest_url in seen_manifests:
+                continue
+            seen_manifests.add(item.manifest_url)
+
+        normalized_title = _normalize_title(item.title) if item.title else ""
+        soft_key = (normalized_title, item.date_display)
+        if normalized_title and soft_key in seen_soft_keys:
+            continue
+        if normalized_title:
+            seen_soft_keys.add(soft_key)
+
+        unique.append(item)
+
+    return unique
