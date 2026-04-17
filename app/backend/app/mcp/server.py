@@ -22,11 +22,26 @@ built by :func:`build_server`, which delegates to
 services as the REST layer (specs §13).
 """
 
-from __future__ import annotations
-
+import json
 import logging
 import os
-from typing import Any, cast
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    # Only imported for type-checking; build_server() still raises a nice
+    # RuntimeError at runtime when the optional mcp package is missing.
+    from mcp.server.fastmcp import Context
+else:
+    # Resolved at runtime so FastMCP can introspect the annotation and
+    # recognize the Context dependency. The module import is wrapped so
+    # callers without the [mcp] extra still get our helpful build_server
+    # error rather than a bare ImportError when importing this module.
+    try:
+        from mcp.server.fastmcp import Context
+    except ImportError:  # pragma: no cover - unit-tested via build_server guard
+        Context = None  # type: ignore[assignment,misc]
 
 from app.api.dependencies import get_registry
 from app.connectors.registry import ConnectorRegistry
@@ -44,8 +59,29 @@ from app.models.search_models import (
 from app.models.source_models import SourcesResponse
 from app.utils.error_sanitizer import sanitize_error_message
 from app.utils.errors import AppError, BadRequestError, NotFoundError
+from app.utils.http_client import reset_shared_client
 
 logger = logging.getLogger(__name__)
+
+
+SERVER_INSTRUCTIONS = """\
+Clafoutis federates search over cultural-heritage institutions (Gallica,
+Bodleian, Europeana, generic IIIF manifest-by-URL) and exposes normalized
+results that embed IIIF manifest URLs ready to open in Mirador.
+
+Pick the right tool:
+- search_items: free-text query across sources. Use filters.has_iiif_manifest=true
+  when you only want items that can be viewed in Mirador.
+- list_sources: discover which sources are registered and healthy.
+- get_item: fetch a single normalized item by "source:source_item_id".
+- resolve_manifest: best-effort IIIF manifest URL for a known item.
+- open_in_mirador: turn a list of manifest URLs into a shareable workspace
+  state (SSRF-validated, deduplicated, capped at 16 entries).
+- import_url: validate a free-form URL and try to resolve a manifest.
+
+Prefer the `clafoutis://sources` resource for catalogue browsing and the
+`clafoutis://item/{global_id}` template for one-off reads.
+"""
 
 
 def _mcp_error_from(exc: Exception) -> Exception:
@@ -67,7 +103,21 @@ def _mcp_error_from(exc: Exception) -> Exception:
     return type(exc)(f"{tag}: {sanitize_error_message(exc)}")
 
 
-def _register_tools(server: Any, tools: MCPTools) -> None:  # noqa: C901 - tool wiring is linear but many in one place
+@asynccontextmanager
+async def _lifespan(_server: Any) -> AsyncIterator[dict[str, Any]]:
+    """Startup / shutdown hooks for the MCP server.
+
+    On shutdown, close the shared httpx AsyncClient so the HTTP transport
+    does not leak its connection pool when the process is terminated.
+    """
+
+    try:
+        yield {}
+    finally:
+        await reset_shared_client()
+
+
+def _register_tools(server: Any, tools: MCPTools) -> None:  # noqa: C901 - tool wiring is linear
     """Register every MCP tool on the FastMCP server."""
 
     from mcp.types import ToolAnnotations
@@ -85,6 +135,7 @@ def _register_tools(server: Any, tools: MCPTools) -> None:  # noqa: C901 - tool 
     @server.tool(annotations=read_only)
     async def search_items(
         query: str,
+        ctx: Context,
         sources: list[str] | None = None,
         filters: SearchFilters | None = None,
         page: int = 1,
@@ -92,12 +143,14 @@ def _register_tools(server: Any, tools: MCPTools) -> None:  # noqa: C901 - tool 
     ) -> SearchResponse:
         """Search patrimonial items across registered sources.
 
-        Returns a normalized SearchResponse with paginated results, a
-        ``has_next_page`` flag and partial-failure diagnostics per source.
+        Emits MCP progress events and info-level log messages so long-running
+        searches feel responsive in compatible clients.
         """
 
+        await ctx.info(f"Federating search query={query!r} page={page}")
+        await ctx.report_progress(progress=0, total=2, message="dispatching sources")
         try:
-            return await tools.search_items(
+            response = await tools.search_items(
                 query=query,
                 sources=sources,
                 filters=filters.model_dump(exclude_none=True) if filters else None,
@@ -106,6 +159,17 @@ def _register_tools(server: Any, tools: MCPTools) -> None:  # noqa: C901 - tool 
             )
         except AppError as exc:
             raise _mcp_error_from(exc) from exc
+
+        await ctx.report_progress(
+            progress=2,
+            total=2,
+            message=f"{len(response.results)} results from {len(response.sources_used)} sources",
+        )
+        if response.partial_failures:
+            await ctx.warning(
+                f"{len(response.partial_failures)} source(s) degraded/failed"
+            )
+        return response
 
     @server.tool(annotations=read_only)
     async def get_item(global_id: str) -> NormalizedItem:
@@ -198,6 +262,19 @@ def _register_resources(server: Any, tools: MCPTools) -> None:
             raise _mcp_error_from(exc) from exc
         return cast(dict[str, Any], item.model_dump())
 
+    @server.resource(
+        "clafoutis://schema/normalized_item",
+        name="normalized_item_schema",
+        title="JSON schema of the normalized item payload",
+        description=(
+            "Canonical JSON Schema for NormalizedItem. Use this to auto-generate "
+            "client-side typings or to verify the shape of tool outputs."
+        ),
+        mime_type="application/schema+json",
+    )
+    async def normalized_item_schema_resource() -> str:
+        return json.dumps(NormalizedItem.model_json_schema(), ensure_ascii=False)
+
 
 def _register_prompts(server: Any) -> None:
     """Register reusable MCP prompts on the FastMCP server."""
@@ -230,6 +307,39 @@ def _register_prompts(server: Any) -> None:
             "Suggest follow-up searches if results are sparse."
         )
 
+    @server.prompt(
+        name="compare_items",
+        title="Compare two normalized items side by side",
+        description=(
+            "Prompt template for side-by-side comparison of two Clafoutis items. "
+            "The model resolves both manifests and opens them together in Mirador."
+        ),
+    )
+    def compare_items(global_id_a: str, global_id_b: str) -> str:
+        return (
+            f"Fetch items {global_id_a} and {global_id_b} using `get_item`. "
+            f"Then call `open_in_mirador` with both manifest URLs. "
+            "Finally, produce a concise comparison covering: title, date, "
+            "institution, creators, IIIF availability and any rights information."
+        )
+
+    @server.prompt(
+        name="explore_source",
+        title="Explore a single source catalogue",
+        description=(
+            "Guide the model to introspect a single source: capabilities, "
+            "sample results, manifest coverage."
+        ),
+    )
+    def explore_source(source: str, sample_query: str = "book") -> str:
+        return (
+            f"Read `clafoutis://sources` and summarize what source '{source}' "
+            "advertises (search, get_item, resolve_manifest, healthy). Then call "
+            f"`search_items(query=\"{sample_query}\", sources=[\"{source}\"], "
+            "page_size=5)` and describe the first few hits. Highlight items "
+            "that carry a IIIF manifest."
+        )
+
 
 def build_server(registry: ConnectorRegistry | None = None):
     """Build a FastMCP server wired to Clafoutis tools, resources and prompts.
@@ -247,7 +357,11 @@ def build_server(registry: ConnectorRegistry | None = None):
         ) from err
 
     tools = MCPTools(registry or get_registry())
-    server = FastMCP("clafoutis")
+    server = FastMCP(
+        "clafoutis",
+        instructions=SERVER_INSTRUCTIONS,
+        lifespan=_lifespan,
+    )
     _register_tools(server, tools)
     _register_resources(server, tools)
     _register_prompts(server)
