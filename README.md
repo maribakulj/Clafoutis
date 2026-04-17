@@ -181,13 +181,42 @@ connecteurs réels.
 Limite connue MVP : cette protection SSRF reste basique et devra être durcie (allowlist,
 résolution DNS contrôlée, protections réseau infra) avant production.
 
-## Outils MCP prévus
+## Outils MCP
 
-- `search_items`
-- `get_item`
-- `resolve_manifest`
-- `open_in_mirador`
-- `list_sources`
+La couche MCP est implémentée dans `app/backend/app/mcp/`. Elle ne duplique
+aucune logique métier : chaque outil est un wrapper minimal autour des
+services déjà utilisés par l'API REST (specs §13).
+
+### Outils exposés
+
+- `search_items(query, sources?, filters?, page?, page_size?)`
+- `get_item(global_id)`
+- `resolve_manifest(source, source_item_id, record_url?)`
+- `open_in_mirador(manifest_urls, workspace?)`
+- `list_sources()`
+
+### Lancement du serveur MCP
+
+```bash
+pip install -e '.[mcp]'
+clafoutis-mcp           # ou : python scripts/run_mcp.py
+```
+
+Le serveur écoute sur stdio (transport MCP standard pour clients
+desktop). Pour l'enregistrer dans un client MCP, pointer la commande
+stdio vers `clafoutis-mcp` (ou `python /chemin/vers/scripts/run_mcp.py`).
+
+### Exemple d'intégration Claude Desktop
+
+```json
+{
+  "mcpServers": {
+    "clafoutis": {
+      "command": "clafoutis-mcp"
+    }
+  }
+}
+```
 
 ## Installation locale
 

@@ -23,6 +23,12 @@ dev = [
   "ruff>=0.4,<1.0",
   "mypy>=1.10,<2.0",
 ]
+mcp = [
+  "mcp>=1.0,<2.0",
+]
+
+[project.scripts]
+clafoutis-mcp = "app.mcp.server:run_stdio"
 
 [tool.pytest.ini_options]
 pythonpath = [
