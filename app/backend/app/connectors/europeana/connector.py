@@ -160,7 +160,7 @@ class EuropeanaConnector(FixtureConnectorMixin, BaseConnector):
         if not settings.europeana_api_key:
             raise RuntimeError("missing europeana api key")
 
-        params = {
+        params: dict[str, str | int] = {
             "wskey": settings.europeana_api_key,
             "query": query,
             "rows": page_size,

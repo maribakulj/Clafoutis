@@ -1,5 +1,7 @@
 """Service responsible for manifest resolution through connectors."""
 
+from typing import Literal
+
 from app.connectors.registry import ConnectorRegistry
 from app.models.manifest_models import ResolveManifestRequest, ResolveManifestResponse
 from app.utils.errors import NotFoundError
@@ -20,7 +22,7 @@ class ManifestResolver:
         connector = self._registry.get(request.source)
         item = await connector.get_item(request.source_item_id)
         manifest_url = await connector.resolve_manifest(item=item, record_url=request.record_url)
-        status = "resolved" if manifest_url else "not_found"
+        status: Literal["resolved", "not_found"] = "resolved" if manifest_url else "not_found"
         method = "metadata" if manifest_url else None
         return ResolveManifestResponse(manifest_url=manifest_url, status=status, method=method)
 
