@@ -27,7 +27,7 @@ import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     # Only imported for type-checking; build_server() still raises a nice
@@ -243,7 +243,8 @@ def _register_resources(server: Any, tools: MCPTools) -> None:
     )
     async def sources_resource() -> dict[str, Any]:
         response = await tools.list_sources()
-        return cast(dict[str, Any], response.model_dump())
+        dumped: dict[str, Any] = response.model_dump()
+        return dumped
 
     @server.resource(
         "clafoutis://item/{global_id}",
@@ -260,7 +261,8 @@ def _register_resources(server: Any, tools: MCPTools) -> None:
             item = await tools.get_item(global_id)
         except AppError as exc:
             raise _mcp_error_from(exc) from exc
-        return cast(dict[str, Any], item.model_dump())
+        dumped: dict[str, Any] = item.model_dump()
+        return dumped
 
     @server.resource(
         "clafoutis://schema/normalized_item",

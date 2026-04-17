@@ -16,11 +16,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install Python deps first so source changes don't invalidate the pip layer.
-COPY pyproject.toml ./
-RUN pip install --upgrade pip && pip install .
+# Upgrade pip in its own cached layer.
+RUN pip install --upgrade pip
 
+# Copy both pyproject.toml AND the backend sources before `pip install .` —
+# setuptools is configured with `[tool.setuptools.packages.find] where =
+# ["app/backend"]`, so the directory must exist at install time. Keeping
+# the backend sources in a dedicated COPY still provides good layer caching
+# (requirements change less often than source files would).
+COPY pyproject.toml ./
 COPY app/backend ./app/backend
+RUN pip install .
+
 COPY --from=frontend-builder /app/app/frontend/dist ./app/frontend/dist
 COPY scripts/start.sh ./scripts/start.sh
 RUN chmod +x scripts/start.sh

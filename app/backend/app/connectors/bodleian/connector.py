@@ -142,7 +142,7 @@ class BodleianConnector(FixtureConnectorMixin, BaseConnector):
         self, query: str, *, page: int = 1, page_size: int = 24,
     ) -> list[dict[str, object]]:
         url = f"{settings.bodleian_api_base_url.rstrip('/')}/search"
-        params: dict[str, object] = {
+        params: dict[str, str | int] = {
             "q": query,
             "limit": page_size,
             "offset": max(0, (page - 1) * page_size),
