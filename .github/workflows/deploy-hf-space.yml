@@ -1,19 +1,19 @@
 name: Deploy Hugging Face Space
 
+# Intentionally scoped to pushes on main and manual dispatch only.
+# Pull requests used to trigger a force-push to the HF Space main branch,
+# which meant every PR opened by a contributor could overwrite production.
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
   push:
     branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: hf-space-deploy-${{ github.event.pull_request.number || github.ref }}
+  group: hf-space-deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   deploy:
-    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

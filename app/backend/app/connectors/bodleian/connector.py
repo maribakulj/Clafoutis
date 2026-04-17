@@ -155,7 +155,8 @@ class BodleianConnector(FixtureConnectorMixin, BaseConnector):
 
         if not isinstance(data, dict) or not isinstance(data.get("results"), list):
             raise ValueError("unexpected Bodleian response shape")
-        return data["results"]
+        results = data["results"]
+        return [entry for entry in results if isinstance(entry, dict)]
 
     def _map_live_record(self, record: dict[str, object], index: int) -> NormalizedItem:
         source_item_id = str(record.get("id") or f"bodleian-live-{index}")

@@ -75,11 +75,19 @@ class FixtureConnectorMixin:
     ) -> list[dict[str, object]]:
         """Filter fixture records by query substring match on title/creators."""
         lowered = query.lower().strip()
+
+        def _creators_text(raw: object) -> str:
+            if isinstance(raw, list):
+                return " ".join(str(item) for item in raw).lower()
+            if isinstance(raw, str):
+                return raw.lower()
+            return ""
+
         return [
             record
             for record in fixtures
-            if lowered in str(record["title"]).lower()
-            or lowered in " ".join(record.get("creators", [])).lower()
+            if lowered in str(record.get("title", "")).lower()
+            or lowered in _creators_text(record.get("creators"))
         ]
 
     def _map_fixture_record(
@@ -95,13 +103,15 @@ class FixtureConnectorMixin:
         manifest_url = manifest_url_override or (
             str(fixture.get("manifest_url")) if fixture.get("manifest_url") else None
         )
+        raw_creators = fixture.get("creators", [])
+        creators_list = raw_creators if isinstance(raw_creators, list) else []
         return NormalizedItem(
             id=make_global_id(self.name, source_item_id),
             source=self.name,
             source_label=self.label,
             source_item_id=source_item_id,
             title=str(fixture["title"]),
-            creators=[str(v) for v in fixture.get("creators", [])],
+            creators=[str(v) for v in creators_list],
             date_display=str(fixture.get("date_display")) if fixture.get("date_display") else None,
             object_type=str(fixture.get("object_type", "other")),
             institution=(
@@ -159,12 +169,19 @@ class FixtureConnectorMixin:
         self,
         source_item_id: str,
         fixtures: list[dict[str, object]],
-        **kwargs: object,
+        *,
+        default_institution: str | None = None,
+        manifest_url_override: str | None = None,
     ) -> NormalizedItem | None:
         """Lookup a single item from fixtures by source_item_id."""
         for fixture in fixtures:
             if fixture["source_item_id"] == source_item_id:
-                return self._map_fixture_record(fixture, 0, **kwargs)
+                return self._map_fixture_record(
+                    fixture,
+                    0,
+                    default_institution=default_institution,
+                    manifest_url_override=manifest_url_override,
+                )
         return None
 
     def _resolve_manifest_from_fixtures(

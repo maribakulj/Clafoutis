@@ -101,10 +101,10 @@ app/
   tests/
     unit/
     integration/
-  docs/
-  Dockerfile
-  docker-compose.yml
-  README.md
+docs/
+scripts/
+Dockerfile
+README.md
 ```
 
 ## Concepts importants
@@ -256,29 +256,35 @@ VITE_API_BASE_URL=http://localhost:8000 npm run dev
 
 Créer un fichier `.env` à partir de `.env.example`.
 
-Variables backend principales (préfixe `CLAFOUTIS_`) :
+Variables backend principales (préfixe `CLAFOUTIS_`). Les valeurs par défaut
+appliquées par le code sont le mode **live** pour tous les connecteurs ;
+les fixtures ne sont utilisées que (1) si un flag `*_USE_FIXTURES=true` est
+explicitement fourni, ou (2) en fallback après une erreur live.
 
 ```env
 CLAFOUTIS_DEBUG=false
 CLAFOUTIS_APP_HOST=0.0.0.0
 CLAFOUTIS_APP_PORT=7860
 CLAFOUTIS_REQUEST_TIMEOUT_SECONDS=8
+CLAFOUTIS_MAX_REQUEST_BODY_BYTES=65536
 CLAFOUTIS_CORS_ALLOW_ORIGINS=["http://localhost:5173"]
 
 CLAFOUTIS_SERVE_FRONTEND=true
 CLAFOUTIS_FRONTEND_DIST_DIR=app/frontend/dist
 
-CLAFOUTIS_GALLICA_USE_FIXTURES=true
-CLAFOUTIS_BODLEIAN_USE_FIXTURES=true
-CLAFOUTIS_EUROPEANA_USE_FIXTURES=true
+# Par défaut: false (mode live avec fallback fixtures). Mettre à true pour
+# forcer le mode fixtures, utile pour une démo hors-ligne stable.
+CLAFOUTIS_GALLICA_USE_FIXTURES=false
+CLAFOUTIS_BODLEIAN_USE_FIXTURES=false
+CLAFOUTIS_EUROPEANA_USE_FIXTURES=false
 CLAFOUTIS_EUROPEANA_API_KEY=
 
 # Hugging Face Spaces: HF_TOKEN est aussi accepté en fallback pour Europeana
 # (utile si votre secret Space est nommé HF_TOKEN).
 
 CLAFOUTIS_ENABLE_CAPABILITY_PROBING=true
-CLAFOUTIS_CAPABILITY_PROBE_USE_FIXTURES=true
-CLAFOUTIS_CAPABILITY_PROBE_TIMEOUT_SECONDS=2
+CLAFOUTIS_CAPABILITY_PROBE_USE_FIXTURES=false
+CLAFOUTIS_CAPABILITY_PROBE_TIMEOUT_SECONDS=3
 CLAFOUTIS_CAPABILITY_PROBE_CACHE_TTL_SECONDS=300
 ```
 
@@ -436,14 +442,14 @@ Statut actuel : en cours de développement.
 
 ## Priorité actuelle
 
-- [ ] Backend socle
-- [ ] Frontend socle
-- [ ] Intégration Mirador
-- [ ] Import manuel
-- [ ] Connecteur Gallica
-- [ ] Connecteurs Bodleian et Europeana
-- [ ] MCP
-- [ ] Docker / déploiement HF Spaces
+- [x] Backend socle
+- [x] Frontend socle
+- [x] Intégration Mirador
+- [x] Import manuel
+- [x] Connecteur Gallica
+- [x] Connecteurs Bodleian et Europeana
+- [x] MCP
+- [x] Docker / déploiement HF Spaces
 
 ## Documentation
 

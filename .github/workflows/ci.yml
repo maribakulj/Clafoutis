@@ -28,7 +28,7 @@ jobs:
         run: ruff check app/backend/ app/tests/
 
       - name: Type check with mypy
-        run: mypy app/backend/app/ --ignore-missing-imports
+        run: mypy
 
       - name: Run tests
         run: pytest app/tests/ -v

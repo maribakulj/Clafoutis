@@ -56,9 +56,11 @@ class SRUCapabilityProbe:
         explain_url = f"{endpoint}?{params}"
 
         async with build_async_client() as client:
-            response = await client.get(explain_url, timeout=settings.capability_probe_timeout_seconds)
+            response = await client.get(
+                explain_url, timeout=settings.capability_probe_timeout_seconds
+            )
             response.raise_for_status()
-            return response.text
+        return str(response.text)
 
     def parse_explain(self, xml_payload: str) -> RuntimeCapabilities:
         """Infer a minimal runtime capability set from Explain XML payload."""

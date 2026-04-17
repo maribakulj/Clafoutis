@@ -81,10 +81,9 @@ class SearchOrchestrator:
                 outcome.total_estimated > request.page * request.page_size
             ):
                 any_source_has_next = True
-            # Only propagate actual failures, not status="ok" entries
-            for pf in outcome.partial_failures:
-                if pf.status != "ok":
-                    partial_failures.append(pf)
+            # PartialFailure.status is Literal["degraded", "error"] so every
+            # entry from a connector is a real failure that must be forwarded.
+            partial_failures.extend(outcome.partial_failures)
 
         merged_results = [
             item for item in merged_results if _matches_filters(item, request.filters)
@@ -133,9 +132,14 @@ def _matches_filters(item: NormalizedItem, filters: SearchFilters) -> bool:
         return False
     if filters.has_iiif_manifest is False and item.has_iiif_manifest:
         return False
-    # Note: languages filter is declared but not yet populated on NormalizedItem;
-    # keep it a no-op for now, forward-compatible.
-    return not (filters.object_type and item.object_type not in filters.object_type)
+    if filters.object_type and item.object_type not in filters.object_type:
+        return False
+    if filters.languages:
+        if not item.languages:
+            return False
+        if not any(lang in filters.languages for lang in item.languages):
+            return False
+    return True
 
 
 def _completeness_bonus(item: NormalizedItem) -> float:
