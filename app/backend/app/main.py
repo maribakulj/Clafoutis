@@ -1,6 +1,8 @@
-"""FastAPI application entrypoint for backend lot 1."""
+"""FastAPI application entrypoint."""
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -13,6 +15,8 @@ from app.config.settings import settings
 from app.models.error_models import ErrorResponse
 from app.utils.error_sanitizer import sanitize_error_message
 from app.utils.errors import AppError, BadRequestError, NotFoundError
+from app.utils.http_client import reset_shared_client
+from app.utils.middleware import BodySizeLimitMiddleware, SecurityHeadersMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
@@ -51,16 +55,39 @@ def _mount_frontend(application: FastAPI) -> None:
         return FileResponse(index_file)
 
 
+@asynccontextmanager
+async def _lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Manage process-wide resources (shared httpx client) across app lifetime."""
+
+    try:
+        yield
+    finally:
+        await reset_shared_client()
+
+
 def create_app() -> FastAPI:
     """Create and configure FastAPI application."""
 
-    application = FastAPI(title=settings.app_name, version=settings.app_version, debug=settings.debug)
+    application = FastAPI(
+        title=settings.app_name,
+        version=settings.app_version,
+        debug=settings.debug,
+        lifespan=_lifespan,
+    )
+
+    # Middleware ordering: outermost first. Security headers wrap every
+    # response; CORS handles preflights before the app sees them; the body
+    # size guard rejects oversized payloads cheaply before routing.
+    application.add_middleware(SecurityHeadersMiddleware)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allow_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type", "Accept"],
+    )
+    application.add_middleware(
+        BodySizeLimitMiddleware, max_bytes=settings.max_request_body_bytes
     )
     application.include_router(api_router)
 
