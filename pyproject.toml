@@ -29,6 +29,7 @@ mcp = [
 
 [project.scripts]
 clafoutis-mcp = "app.mcp.server:run_stdio"
+clafoutis-mcp-http = "app.mcp.server:run_http"
 
 [tool.pytest.ini_options]
 pythonpath = [

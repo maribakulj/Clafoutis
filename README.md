@@ -195,16 +195,29 @@ services déjà utilisés par l'API REST (specs §13).
 - `open_in_mirador(manifest_urls, workspace?)`
 - `list_sources()`
 
+### Ressources MCP
+
+- `clafoutis://sources` — snapshot read-only des sources enregistrées
+- `clafoutis://item/{global_id}` — item normalisé par identifiant global
+
+### Prompt MCP
+
+- `find_heritage_items(topic, sources?, iiif_only?)` — prompt réutilisable
+  guidant le modèle à lancer une recherche et résumer les résultats.
+
 ### Lancement du serveur MCP
+
+Deux transports sont disponibles. Choisir selon le client :
 
 ```bash
 pip install -e '.[mcp]'
-clafoutis-mcp           # ou : python scripts/run_mcp.py
-```
 
-Le serveur écoute sur stdio (transport MCP standard pour clients
-desktop). Pour l'enregistrer dans un client MCP, pointer la commande
-stdio vers `clafoutis-mcp` (ou `python /chemin/vers/scripts/run_mcp.py`).
+# stdio — pour les clients desktop (Claude Desktop, etc.)
+clafoutis-mcp
+
+# Streamable HTTP — pour les déploiements hébergés (HF Space, K8s, etc.)
+CLAFOUTIS_MCP_HOST=0.0.0.0 CLAFOUTIS_MCP_PORT=8765 clafoutis-mcp-http
+```
 
 ### Exemple d'intégration Claude Desktop
 
@@ -217,6 +230,19 @@ stdio vers `clafoutis-mcp` (ou `python /chemin/vers/scripts/run_mcp.py`).
   }
 }
 ```
+
+### Exemple client Python
+
+Un client de démonstration est fourni :
+
+```bash
+python scripts/mcp_client_example.py --query "book of hours"
+```
+
+Le script lance le serveur en sous-processus, se connecte via stdio avec
+le SDK `mcp` officiel, liste les outils/ressources/prompts et exerce
+chaque surface. C'est la référence canonique pour écrire un client
+Clafoutis MCP dans n'importe quel agent.
 
 ## Installation locale
 
