@@ -8,7 +8,12 @@ import time
 from app.config.settings import settings
 from app.connectors.registry import ConnectorRegistry
 from app.models.normalized_item import NormalizedItem
-from app.models.search_models import PartialFailure, SearchRequest, SearchResponse
+from app.models.search_models import (
+    PartialFailure,
+    SearchFilters,
+    SearchRequest,
+    SearchResponse,
+)
 from app.utils.error_sanitizer import sanitize_error_message
 
 
@@ -72,6 +77,9 @@ class SearchOrchestrator:
                 if pf.status != "ok":
                     partial_failures.append(pf)
 
+        merged_results = [
+            item for item in merged_results if _matches_filters(item, request.filters)
+        ]
         merged_results.sort(key=lambda item: item.relevance_score, reverse=True)
 
         return SearchResponse(
@@ -98,9 +106,23 @@ class SearchOrchestrator:
         if not self._registry.has(source):
             raise ValueError(f"Unknown source '{source}'")
         connector = self._registry.get(source)
+        # Connectors receive the filter payload as a dict for future native
+        # filtering. The orchestrator remains the source of truth (post-filter).
         return await connector.search(
             query=request.query,
-            filters=request.filters,
+            filters=request.filters.model_dump(exclude_none=True),
             page=request.page,
             page_size=request.page_size,
         )
+
+
+def _matches_filters(item: NormalizedItem, filters: SearchFilters) -> bool:
+    """Return True when ``item`` satisfies every non-None filter constraint."""
+
+    if filters.has_iiif_manifest is True and not item.has_iiif_manifest:
+        return False
+    if filters.has_iiif_manifest is False and item.has_iiif_manifest:
+        return False
+    # Note: languages filter is declared but not yet populated on NormalizedItem;
+    # keep it a no-op for now, forward-compatible.
+    return not (filters.object_type and item.object_type not in filters.object_type)

@@ -1,8 +1,10 @@
 import { useCallback } from 'react'
 
+import { Pagination } from '../components/search/Pagination'
+import { PartialFailuresBanner } from '../components/search/PartialFailuresBanner'
+import { ResultsGrid } from '../components/search/ResultsGrid'
 import { SearchBar } from '../components/search/SearchBar'
 import { SearchFilters } from '../components/search/SearchFilters'
-import { ResultsGrid } from '../components/search/ResultsGrid'
 import { useSearch } from '../hooks/useSearch'
 import { useReaderStore } from '../store/readerStore'
 import { useSearchStore } from '../store/searchStore'
@@ -13,6 +15,11 @@ export function SearchPage() {
   const query = useSearchStore((state) => state.query)
   const filters = useSearchStore((state) => state.filters)
   const results = useSearchStore((state) => state.results)
+  const page = useSearchStore((state) => state.page)
+  const pageSize = useSearchStore((state) => state.pageSize)
+  const hasNextPage = useSearchStore((state) => state.hasNextPage)
+  const totalEstimated = useSearchStore((state) => state.totalEstimated)
+  const partialFailures = useSearchStore((state) => state.partialFailures)
   const selectedForComparison = useSearchStore((state) => state.selectedForComparison)
   const setQuery = useSearchStore((state) => state.setQuery)
   const setFilters = useSearchStore((state) => state.setFilters)
@@ -23,22 +30,39 @@ export function SearchPage() {
 
   const search = useSearch()
 
-  const triggerSearch = useCallback(
-    (newQuery: string) => {
-      if (!newQuery) {
+  const runSearch = useCallback(
+    (nextQuery: string, nextPage: number) => {
+      const trimmed = nextQuery.trim()
+      if (!trimmed) {
         return
       }
-      setQuery(newQuery)
       const payload: SearchRequest = {
-        query: newQuery,
+        query: trimmed,
         sources: filters.sources.length > 0 ? filters.sources : undefined,
-        filters: filters.hasIiifOnly ? { has_iiif_manifest: true } : {},
-        page: 1,
-        page_size: 24,
+        filters: {
+          has_iiif_manifest: filters.hasIiifOnly ? true : null,
+        },
+        page: nextPage,
+        page_size: pageSize,
       }
       search.mutate(payload)
     },
-    [filters, setQuery, search],
+    [filters, pageSize, search],
+  )
+
+  const triggerSearch = useCallback(
+    (nextQuery: string) => {
+      setQuery(nextQuery)
+      runSearch(nextQuery, 1)
+    },
+    [runSearch, setQuery],
+  )
+
+  const handlePageChange = useCallback(
+    (nextPage: number) => {
+      runSearch(query, nextPage)
+    },
+    [runSearch, query],
   )
 
   const prepareRead = useCallback(
@@ -56,20 +80,33 @@ export function SearchPage() {
       <main className="space-y-4">
         <SearchBar initialQuery={query} onSubmit={triggerSearch} />
 
-        {search.isPending && <p className="text-sm text-slate-600">Chargement des résultats...</p>}
+        {search.isPending && <p className="text-sm text-slate-600" role="status">Chargement des résultats...</p>}
         {search.isError && (
-          <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+          <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700" role="alert">
             Erreur: {search.error.message}
           </p>
         )}
 
+        <PartialFailuresBanner failures={partialFailures} />
+
         {!search.isPending && !search.isError && (
-          <ResultsGrid
-            items={results}
-            selectedForComparison={selectedForComparison}
-            onPrepareRead={prepareRead}
-            onToggleCompare={toggleCompareSelection}
-          />
+          <>
+            <ResultsGrid
+              items={results}
+              selectedForComparison={selectedForComparison}
+              onPrepareRead={prepareRead}
+              onToggleCompare={toggleCompareSelection}
+            />
+            <Pagination
+              page={page}
+              hasNextPage={hasNextPage}
+              totalEstimated={totalEstimated}
+              pageSize={pageSize}
+              resultsCount={results.length}
+              disabled={search.isPending}
+              onPageChange={handlePageChange}
+            />
+          </>
         )}
       </main>
     </div>
