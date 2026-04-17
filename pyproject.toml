@@ -38,6 +38,10 @@ testpaths = [
   "app/tests",
 ]
 
+[tool.setuptools.packages.find]
+where = ["app/backend"]
+include = ["app*"]
+
 [tool.ruff]
 target-version = "py311"
 line-length = 110

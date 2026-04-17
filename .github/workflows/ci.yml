@@ -22,7 +22,9 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -e '.[dev]'
+        # Install the [mcp] extra so the MCP server integration tests run
+        # alongside the rest of the suite rather than silently skipping.
+        run: pip install -e '.[dev,mcp]'
 
       - name: Lint with ruff
         run: ruff check app/backend/ app/tests/
@@ -32,6 +34,12 @@ jobs:
 
       - name: Run tests
         run: pytest app/tests/ -v
+
+      - name: Verify MCP console script resolves
+        # Trips immediately if the setuptools package layout regresses and
+        # the app.* namespace stops being importable after pip install.
+        run: |
+          python -c "from app.mcp.server import build_server; build_server()"
 
   frontend-typecheck:
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
