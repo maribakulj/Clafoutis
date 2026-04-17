@@ -51,6 +51,16 @@ class BaseConnector(ABC):
     async def capabilities(self) -> SourceCapabilities:
         """Declare static connector capabilities."""
 
+    async def find_by_record_url(self, record_url: str) -> NormalizedItem | None:
+        """Return the matching item for a record URL, if the source recognizes it.
+
+        Default: the connector does not index record URLs. Sources with a
+        finite catalog (mock, fixtures) may override this to enrich import
+        responses with a full NormalizedItem.
+        """
+
+        return None
+
 
 class FixtureConnectorMixin:
     """Shared helpers for connectors that use fixture fallback."""
@@ -165,7 +175,8 @@ class FixtureConnectorMixin:
         """Try to resolve manifest URL from fixture data."""
         for fixture in fixtures:
             if fixture.get("record_url") == record_url:
-                return str(fixture.get("manifest_url"))
+                manifest = fixture.get("manifest_url")
+                return str(manifest) if manifest else None
         return None
 
     @staticmethod

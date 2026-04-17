@@ -78,10 +78,9 @@ class BodleianConnector(FixtureConnectorMixin, BaseConnector):
     async def get_item(self, source_item_id: str) -> NormalizedItem | None:
         if not settings.bodleian_use_fixtures:
             try:
-                records = await self._fetch_live_search_records(source_item_id, page=1, page_size=24)
-                for record in records:
-                    if str(record.get("id")) == source_item_id:
-                        return self._map_live_record(record, 0)
+                record = await self._fetch_live_record(source_item_id)
+                if record is not None:
+                    return self._map_live_record(record, 0)
             except Exception as exc:
                 logger.warning("Bodleian live get_item failed for %s: %s", source_item_id, exc)
 
@@ -126,6 +125,18 @@ class BodleianConnector(FixtureConnectorMixin, BaseConnector):
 
     async def capabilities(self) -> SourceCapabilities:
         return SourceCapabilities(search=True, get_item=True, resolve_manifest=True)
+
+    async def _fetch_live_record(self, source_item_id: str) -> dict[str, object] | None:
+        """Fetch a single Bodleian record by id via the item detail endpoint."""
+
+        url = f"{settings.bodleian_api_base_url.rstrip('/')}/items/{source_item_id}"
+        async with build_async_client() as client:
+            response = await client.get(url)
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+        return data if isinstance(data, dict) else None
 
     async def _fetch_live_search_records(
         self, query: str, *, page: int = 1, page_size: int = 24,

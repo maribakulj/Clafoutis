@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 
+from app.config.settings import settings
 from app.connectors.registry import ConnectorRegistry
 from app.models.normalized_item import NormalizedItem
 from app.models.search_models import PartialFailure, SearchRequest, SearchResponse
@@ -26,10 +27,14 @@ class SearchOrchestrator:
         cross-source results); it simply interleaves results ordered by
         relevance and reports ``has_next_page`` when *any* source suggests
         more results exist.
+
+        Robustness: each per-source task is individually wrapped in a
+        ``asyncio.wait_for`` using ``request_timeout_seconds`` so a single
+        hanging source cannot stall the whole federated response.
         """
 
         selected = request.sources or self._registry.list_names()
-        tasks = [self._search_one(source, request) for source in selected]
+        tasks = [self._search_one_with_timeout(source, request) for source in selected]
         start = time.perf_counter()
         gathered = await asyncio.gather(*tasks, return_exceptions=True)
         duration_ms = int((time.perf_counter() - start) * 1000)
@@ -41,6 +46,11 @@ class SearchOrchestrator:
         any_source_has_next = False
 
         for source_name, outcome in zip(selected, gathered, strict=True):
+            if isinstance(outcome, asyncio.TimeoutError):
+                partial_failures.append(
+                    PartialFailure(source=source_name, status="error", error="timeout")
+                )
+                continue
             if not isinstance(outcome, SearchResponse):
                 partial_failures.append(
                     PartialFailure(
@@ -74,6 +84,14 @@ class SearchOrchestrator:
             sources_used=sources_used,
             partial_failures=partial_failures,
             duration_ms=duration_ms,
+        )
+
+    async def _search_one_with_timeout(
+        self, source: str, request: SearchRequest
+    ) -> SearchResponse:
+        return await asyncio.wait_for(
+            self._search_one(source, request),
+            timeout=settings.request_timeout_seconds,
         )
 
     async def _search_one(self, source: str, request: SearchRequest) -> SearchResponse:

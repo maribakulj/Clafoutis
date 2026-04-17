@@ -30,6 +30,12 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
     source_type = "institution"
 
     _DEFAULT_INSTITUTION = "Bibliothèque nationale de France"
+    _SRW_RECORD_TAG = "{http://www.loc.gov/zing/srw/}record"
+    _DC_NAMESPACES = (
+        "http://purl.org/dc/elements/1.1/",
+        "http://purl.org/dc/terms/",
+    )
+    _DC_LOCAL_NAMES = {"title", "creator", "date", "identifier", "type"}
 
     async def search(
         self,
@@ -155,18 +161,29 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
             response.raise_for_status()
 
         root = SafeET.fromstring(response.text)
-        return [record for record in root.iter() if record.tag.endswith("record")]
+        records = list(root.iter(self._SRW_RECORD_TAG))
+        if records:
+            return records
+        # Fallback for non-namespaced SRU responses: match exactly on tag == "record"
+        # (not *record or dcrecord).
+        return [node for node in root.iter() if node.tag == "record"]
 
     def _map_record(self, record: ET.Element, index: int) -> NormalizedItem:
         dc = self._extract_dc_values(record)
+        identifiers = dc.get("identifier", [])
 
-        source_item_id = self._extract_ark(dc.get("identifier", []))
+        source_item_id = self._extract_ark(identifiers)
         if not source_item_id:
             source_item_id = f"gallica-record-{index}"
 
         title = self._first(dc.get("title", []), default="Document Gallica")
         creators = dc.get("creator", [])
-        record_url = self._first(dc.get("identifier", []), default=None)
+        # Prefer the first identifier that looks like an HTTP(S) URL, otherwise
+        # any identifier; fall back to None. A raw ARK string is not a URL and
+        # shouldn't be used as record_url.
+        record_url = self._first_url(identifiers) or self._first(identifiers, default=None)
+        if record_url and not record_url.startswith(("http://", "https://")):
+            record_url = None
         manifest_url = (
             self._manifest_from_ark(source_item_id) if source_item_id.startswith("ark:/") else None
         )
@@ -200,12 +217,24 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
 
     def _extract_dc_values(self, record: ET.Element) -> dict[str, list[str]]:
         values: dict[str, list[str]] = {}
+        seen: dict[str, set[str]] = {}
         for node in record.iter():
-            if not node.tag.startswith("{"):
+            if not node.tag.startswith("{") or not node.text:
                 continue
-            local_name = node.tag.split("}", maxsplit=1)[1]
-            if local_name in {"title", "creator", "date", "identifier", "type"} and node.text:
-                values.setdefault(local_name, []).append(node.text.strip())
+            namespace, _, local_name = node.tag[1:].partition("}")
+            if namespace not in self._DC_NAMESPACES:
+                continue
+            if local_name not in self._DC_LOCAL_NAMES:
+                continue
+            text = node.text.strip()
+            if not text:
+                continue
+            bucket = values.setdefault(local_name, [])
+            seen_bucket = seen.setdefault(local_name, set())
+            if text in seen_bucket:
+                continue
+            seen_bucket.add(text)
+            bucket.append(text)
         return values
 
     def _extract_ark(self, identifiers: list[str] | str) -> str | None:
@@ -237,3 +266,10 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
     @staticmethod
     def _first(values: list[str], default: str | None) -> str | None:
         return values[0] if values else default
+
+    @staticmethod
+    def _first_url(values: list[str]) -> str | None:
+        for value in values:
+            if value.startswith(("http://", "https://")):
+                return value
+        return None
