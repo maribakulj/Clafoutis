@@ -1,4 +1,10 @@
-import type { SearchRequest, SearchResponse, SourcesResponse } from '../types/api'
+import type {
+  ImportRequest,
+  ImportResponse,
+  SearchRequest,
+  SearchResponse,
+  SourcesResponse,
+} from '../types/api'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 const REQUEST_TIMEOUT_MS = 30_000
@@ -41,4 +47,15 @@ export async function searchItems(
 
 export async function listSources(): Promise<SourcesResponse> {
   return request<SourcesResponse>('/api/sources')
+}
+
+export async function importUrl(
+  payload: ImportRequest,
+  signal?: AbortSignal,
+): Promise<ImportResponse> {
+  return request<ImportResponse>('/api/import', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    signal,
+  })
 }

@@ -21,3 +21,27 @@ class ResolveManifestResponse(BaseModel):
     manifest_url: str | None = None
     status: Literal["resolved", "not_found"]
     method: str | None = None
+
+
+class OpenInMiradorRequest(BaseModel):
+    """Input payload for ``/api/open`` — open manifests in a Mirador workspace."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    manifest_urls: list[str] = Field(min_length=1, max_length=16)
+    workspace: str = "default"
+
+
+class MiradorWorkspaceState(BaseModel):
+    """Compact Mirador-compatible workspace state returned by ``/api/open``."""
+
+    windows: list[dict[str, str]]
+    catalog: list[dict[str, str]]
+    workspace: dict[str, object]
+
+
+class OpenInMiradorResponse(BaseModel):
+    """Output payload for ``/api/open``."""
+
+    manifest_urls: list[str]
+    mirador_state: MiradorWorkspaceState

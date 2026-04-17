@@ -82,6 +82,14 @@ class MockConnector(BaseConnector):
 
         return self._items.get(source_item_id)
 
+    async def find_by_record_url(self, record_url: str) -> NormalizedItem | None:
+        """Return the mock item whose record URL exactly matches, if any."""
+
+        for candidate in self._items.values():
+            if candidate.record_url == record_url:
+                return candidate
+        return None
+
     async def resolve_manifest(
         self,
         item: NormalizedItem | None = None,

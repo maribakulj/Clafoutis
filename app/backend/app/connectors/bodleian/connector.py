@@ -11,6 +11,7 @@ from app.connectors.bodleian.fixtures import FIXTURE_BODLEIAN_RECORDS
 from app.models.normalized_item import NormalizedItem
 from app.models.search_models import PartialFailure, SearchResponse
 from app.models.source_models import SourceCapabilities
+from app.utils.error_sanitizer import sanitize_error_message
 from app.utils.http_client import build_async_client
 from app.utils.ids import make_global_id
 
@@ -35,39 +36,53 @@ class BodleianConnector(FixtureConnectorMixin, BaseConnector):
     ) -> SearchResponse:
         start = time.perf_counter()
 
+        if settings.bodleian_use_fixtures:
+            return self._fixture_search_response(query, page, page_size, start, partial=[])
+
         try:
-            records = await self._fetch_live_search_records(query)
+            records = await self._fetch_live_search_records(query, page=page, page_size=page_size)
             items = [self._map_live_record(r, i) for i, r in enumerate(records)]
-            partial: list[PartialFailure] = []
-            needs_local_pagination = False
         except Exception as exc:
             logger.warning("Bodleian live search failed, using fixtures: %s", exc)
-            records = self._search_fixtures(query, FIXTURE_BODLEIAN_RECORDS)
-            items = [
-                self._map_fixture_record(r, i, default_institution=self._DEFAULT_INSTITUTION)
-                for i, r in enumerate(records)
-            ]
             partial = [PartialFailure(
                 source=self.name, status="degraded",
-                error=f"live_bodleian_unavailable: {exc}",
+                error=f"live_bodleian_unavailable: {sanitize_error_message(exc)}",
             )]
-            needs_local_pagination = True
+            return self._fixture_search_response(query, page, page_size, start, partial=partial)
 
         return self._build_search_response(
             query=query, page=page, page_size=page_size,
+            items=items, partial_failures=[],
+            needs_local_pagination=False, start_time=start,
+        )
+
+    def _fixture_search_response(
+        self,
+        query: str,
+        page: int,
+        page_size: int,
+        start: float,
+        partial: list[PartialFailure],
+    ) -> SearchResponse:
+        records = self._search_fixtures(query, FIXTURE_BODLEIAN_RECORDS)
+        items = [
+            self._map_fixture_record(r, i, default_institution=self._DEFAULT_INSTITUTION)
+            for i, r in enumerate(records)
+        ]
+        return self._build_search_response(
+            query=query, page=page, page_size=page_size,
             items=items, partial_failures=partial,
-            needs_local_pagination=needs_local_pagination, start_time=start,
+            needs_local_pagination=True, start_time=start,
         )
 
     async def get_item(self, source_item_id: str) -> NormalizedItem | None:
-        # Try live lookup first via search, fallback to fixtures
-        try:
-            records = await self._fetch_live_search_records(source_item_id)
-            for record in records:
-                if str(record.get("id")) == source_item_id:
+        if not settings.bodleian_use_fixtures:
+            try:
+                record = await self._fetch_live_record(source_item_id)
+                if record is not None:
                     return self._map_live_record(record, 0)
-        except Exception as exc:
-            logger.warning("Bodleian live get_item failed for %s: %s", source_item_id, exc)
+            except Exception as exc:
+                logger.warning("Bodleian live get_item failed for %s: %s", source_item_id, exc)
 
         return self._get_fixture_item(
             source_item_id, FIXTURE_BODLEIAN_RECORDS,
@@ -97,6 +112,8 @@ class BodleianConnector(FixtureConnectorMixin, BaseConnector):
         return None
 
     async def healthcheck(self) -> dict[str, str]:
+        if settings.bodleian_use_fixtures:
+            return {"status": "ok", "mode": "fixtures"}
         try:
             async with build_async_client() as client:
                 response = await client.get(settings.bodleian_api_base_url)
@@ -109,9 +126,27 @@ class BodleianConnector(FixtureConnectorMixin, BaseConnector):
     async def capabilities(self) -> SourceCapabilities:
         return SourceCapabilities(search=True, get_item=True, resolve_manifest=True)
 
-    async def _fetch_live_search_records(self, query: str) -> list[dict[str, object]]:
+    async def _fetch_live_record(self, source_item_id: str) -> dict[str, object] | None:
+        """Fetch a single Bodleian record by id via the item detail endpoint."""
+
+        url = f"{settings.bodleian_api_base_url.rstrip('/')}/items/{source_item_id}"
+        async with build_async_client() as client:
+            response = await client.get(url)
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+        return data if isinstance(data, dict) else None
+
+    async def _fetch_live_search_records(
+        self, query: str, *, page: int = 1, page_size: int = 24,
+    ) -> list[dict[str, object]]:
         url = f"{settings.bodleian_api_base_url.rstrip('/')}/search"
-        params = {"q": query, "limit": 24}
+        params: dict[str, object] = {
+            "q": query,
+            "limit": page_size,
+            "offset": max(0, (page - 1) * page_size),
+        }
 
         async with build_async_client() as client:
             response = await client.get(url, params=params)
@@ -120,7 +155,8 @@ class BodleianConnector(FixtureConnectorMixin, BaseConnector):
 
         if not isinstance(data, dict) or not isinstance(data.get("results"), list):
             raise ValueError("unexpected Bodleian response shape")
-        return data["results"]
+        results = data["results"]
+        return [entry for entry in results if isinstance(entry, dict)]
 
     def _map_live_record(self, record: dict[str, object], index: int) -> NormalizedItem:
         source_item_id = str(record.get("id") or f"bodleian-live-{index}")

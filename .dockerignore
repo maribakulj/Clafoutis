@@ -12,4 +12,7 @@ __pycache__
 .idea
 *.egg-info
 app/frontend/node_modules
+app/frontend/dist
+app/tests
 docs/
+scripts/smoke_backend.py

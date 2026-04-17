@@ -16,17 +16,10 @@ class ImportService:
 
         safe_url = validate_http_url(url)
         for connector in self._registry.list_connectors():
-            matched_item = None
-            if connector.name == "mock":
-                # Lot 1: keep import deterministic with the mock catalog by checking
-                # known sample IDs and matching their record_url.
-                for candidate_id in ("ms-1", "ms-2"):
-                    candidate = await connector.get_item(candidate_id)
-                    if candidate is not None and candidate.record_url == safe_url:
-                        matched_item = candidate
-                        break
-
-            manifest = await connector.resolve_manifest(record_url=safe_url)
+            matched_item = await connector.find_by_record_url(safe_url)
+            manifest = await connector.resolve_manifest(
+                item=matched_item, record_url=safe_url
+            )
             if manifest:
                 return ImportResponse(
                     detected_source=connector.name,
@@ -34,4 +27,6 @@ class ImportService:
                     manifest_url=manifest,
                     item=matched_item,
                 )
-        return ImportResponse(detected_source=None, record_url=safe_url, manifest_url=None, item=None)
+        return ImportResponse(
+            detected_source=None, record_url=safe_url, manifest_url=None, item=None
+        )

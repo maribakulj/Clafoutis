@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     cors_allow_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     serve_frontend: bool = True
     frontend_dist_dir: str = "app/frontend/dist"
+    max_request_body_bytes: int = Field(default=64 * 1024, gt=0)
 
     # Connector settings (live by default, fixtures as fallback on error)
     gallica_use_fixtures: bool = False

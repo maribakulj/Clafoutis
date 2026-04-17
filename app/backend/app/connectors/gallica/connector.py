@@ -7,19 +7,17 @@ import time
 import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus
 
+import defusedxml.ElementTree as SafeET
+
 from app.config.settings import settings
 from app.connectors.base import BaseConnector, FixtureConnectorMixin
 from app.connectors.gallica.fixtures import FIXTURE_GALLICA_RECORDS
 from app.models.normalized_item import NormalizedItem
 from app.models.search_models import PartialFailure, SearchResponse
 from app.models.source_models import SourceCapabilities
+from app.utils.error_sanitizer import sanitize_error_message
 from app.utils.http_client import build_async_client
 from app.utils.ids import make_global_id
-
-try:
-    import defusedxml.ElementTree as SafeET
-except ImportError:  # pragma: no cover
-    SafeET = ET  # type: ignore[misc]
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +30,12 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
     source_type = "institution"
 
     _DEFAULT_INSTITUTION = "Bibliothèque nationale de France"
+    _SRW_RECORD_TAG = "{http://www.loc.gov/zing/srw/}record"
+    _DC_NAMESPACES = (
+        "http://purl.org/dc/elements/1.1/",
+        "http://purl.org/dc/terms/",
+    )
+    _DC_LOCAL_NAMES = {"title", "creator", "date", "identifier", "type"}
 
     async def search(
         self,
@@ -41,44 +45,61 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
         page_size: int,
     ) -> SearchResponse:
         start = time.perf_counter()
-        needs_local_pagination = False
+
+        if settings.gallica_use_fixtures:
+            return self._fixture_search_response(query, page, page_size, start, partial=[])
+
         try:
             records = await self._fetch_search_records(query=query, page=page, page_size=page_size)
             items = [self._map_record(record, index) for index, record in enumerate(records)]
-            partial: list[PartialFailure] = []
         except Exception as exc:
             logger.warning("Gallica live search failed, using fixtures: %s", exc)
-            needs_local_pagination = True
-            records = self._search_fixtures(query, FIXTURE_GALLICA_RECORDS)
-            items = [
-                self._map_fixture_record(
-                    r, i,
-                    default_institution=self._DEFAULT_INSTITUTION,
-                    manifest_url_override=self._manifest_from_ark(str(r["source_item_id"])),
-                )
-                for i, r in enumerate(records)
-            ]
             partial = [PartialFailure(
                 source=self.name, status="degraded",
-                error=f"live_gallica_unavailable: {exc}",
+                error=f"live_gallica_unavailable: {sanitize_error_message(exc)}",
             )]
+            return self._fixture_search_response(query, page, page_size, start, partial=partial)
 
         return self._build_search_response(
             query=query, page=page, page_size=page_size,
+            items=items, partial_failures=[],
+            needs_local_pagination=False, start_time=start,
+        )
+
+    def _fixture_search_response(
+        self,
+        query: str,
+        page: int,
+        page_size: int,
+        start: float,
+        partial: list[PartialFailure],
+    ) -> SearchResponse:
+        records = self._search_fixtures(query, FIXTURE_GALLICA_RECORDS)
+        items = [
+            self._map_fixture_record(
+                r, i,
+                default_institution=self._DEFAULT_INSTITUTION,
+                manifest_url_override=self._manifest_from_ark(str(r["source_item_id"])),
+            )
+            for i, r in enumerate(records)
+        ]
+        return self._build_search_response(
+            query=query, page=page, page_size=page_size,
             items=items, partial_failures=partial,
-            needs_local_pagination=needs_local_pagination, start_time=start,
+            needs_local_pagination=True, start_time=start,
         )
 
     async def get_item(self, source_item_id: str) -> NormalizedItem | None:
-        try:
-            records = await self._fetch_search_records(
-                query=f'ark all "{source_item_id}"',
-                page=1, page_size=1, raw_query=True,
-            )
-            if records:
-                return self._map_record(records[0], 0)
-        except Exception as exc:
-            logger.warning("Gallica live get_item failed for %s: %s", source_item_id, exc)
+        if not settings.gallica_use_fixtures:
+            try:
+                records = await self._fetch_search_records(
+                    query=f'ark all "{source_item_id}"',
+                    page=1, page_size=1, raw_query=True,
+                )
+                if records:
+                    return self._map_record(records[0], 0)
+            except Exception as exc:
+                logger.warning("Gallica live get_item failed for %s: %s", source_item_id, exc)
 
         return self._get_fixture_item(
             source_item_id, FIXTURE_GALLICA_RECORDS,
@@ -102,6 +123,8 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
         return self._manifest_from_ark(ark) if ark else None
 
     async def healthcheck(self) -> dict[str, str]:
+        if settings.gallica_use_fixtures:
+            return {"status": "ok", "mode": "fixtures"}
         try:
             params_query = quote_plus('dc.title all "test"')
             url = (
@@ -138,18 +161,29 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
             response.raise_for_status()
 
         root = SafeET.fromstring(response.text)
-        return [record for record in root.iter() if record.tag.endswith("record")]
+        records = list(root.iter(self._SRW_RECORD_TAG))
+        if records:
+            return records
+        # Fallback for non-namespaced SRU responses: match exactly on tag == "record"
+        # (not *record or dcrecord).
+        return [node for node in root.iter() if node.tag == "record"]
 
     def _map_record(self, record: ET.Element, index: int) -> NormalizedItem:
         dc = self._extract_dc_values(record)
+        identifiers = dc.get("identifier", [])
 
-        source_item_id = self._extract_ark(dc.get("identifier", []))
+        source_item_id = self._extract_ark(identifiers)
         if not source_item_id:
             source_item_id = f"gallica-record-{index}"
 
         title = self._first(dc.get("title", []), default="Document Gallica")
         creators = dc.get("creator", [])
-        record_url = self._first(dc.get("identifier", []), default=None)
+        # Prefer the first identifier that looks like an HTTP(S) URL, otherwise
+        # any identifier; fall back to None. A raw ARK string is not a URL and
+        # shouldn't be used as record_url.
+        record_url = self._first_url(identifiers) or self._first(identifiers, default=None)
+        if record_url and not record_url.startswith(("http://", "https://")):
+            record_url = None
         manifest_url = (
             self._manifest_from_ark(source_item_id) if source_item_id.startswith("ark:/") else None
         )
@@ -183,12 +217,24 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
 
     def _extract_dc_values(self, record: ET.Element) -> dict[str, list[str]]:
         values: dict[str, list[str]] = {}
+        seen: dict[str, set[str]] = {}
         for node in record.iter():
-            if not node.tag.startswith("{"):
+            if not node.tag.startswith("{") or not node.text:
                 continue
-            local_name = node.tag.split("}", maxsplit=1)[1]
-            if local_name in {"title", "creator", "date", "identifier", "type"} and node.text:
-                values.setdefault(local_name, []).append(node.text.strip())
+            namespace, _, local_name = node.tag[1:].partition("}")
+            if namespace not in self._DC_NAMESPACES:
+                continue
+            if local_name not in self._DC_LOCAL_NAMES:
+                continue
+            text = node.text.strip()
+            if not text:
+                continue
+            bucket = values.setdefault(local_name, [])
+            seen_bucket = seen.setdefault(local_name, set())
+            if text in seen_bucket:
+                continue
+            seen_bucket.add(text)
+            bucket.append(text)
         return values
 
     def _extract_ark(self, identifiers: list[str] | str) -> str | None:
@@ -220,3 +266,10 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
     @staticmethod
     def _first(values: list[str], default: str | None) -> str | None:
         return values[0] if values else default
+
+    @staticmethod
+    def _first_url(values: list[str]) -> str | None:
+        for value in values:
+            if value.startswith(("http://", "https://")):
+                return value
+        return None

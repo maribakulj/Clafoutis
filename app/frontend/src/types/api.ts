@@ -6,10 +6,16 @@ export interface PartialFailure {
   error: string | null
 }
 
+export interface SearchFiltersPayload {
+  has_iiif_manifest?: boolean | null
+  object_type?: string[] | null
+  languages?: string[] | null
+}
+
 export interface SearchRequest {
   query: string
   sources?: string[]
-  filters: Record<string, unknown>
+  filters: SearchFiltersPayload
   page: number
   page_size: number
 }
@@ -48,4 +54,15 @@ export interface SourcesResponse {
 export interface ApiError {
   error: string
   details: string | null
+}
+
+export interface ImportRequest {
+  url: string
+}
+
+export interface ImportResponse {
+  detected_source: string | null
+  record_url: string | null
+  manifest_url: string | null
+  item: NormalizedItem | null
 }

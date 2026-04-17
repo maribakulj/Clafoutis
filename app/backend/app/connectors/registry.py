@@ -1,6 +1,7 @@
 """Registry storing available connectors."""
 
 from app.connectors.base import BaseConnector
+from app.utils.errors import NotFoundError
 
 
 class ConnectorRegistry:
@@ -20,9 +21,16 @@ class ConnectorRegistry:
         return sorted(self._connectors.keys())
 
     def get(self, name: str) -> BaseConnector:
-        """Return connector instance for the provided name."""
+        """Return connector instance for the provided name.
 
-        return self._connectors[name]
+        Raises ``NotFoundError`` when the name is unknown so callers get a
+        structured domain error rather than a raw ``KeyError``.
+        """
+
+        try:
+            return self._connectors[name]
+        except KeyError as err:
+            raise NotFoundError(f"Unknown source '{name}'") from err
 
     def has(self, name: str) -> bool:
         """Return whether a connector with the given name is registered."""

@@ -101,10 +101,10 @@ app/
   tests/
     unit/
     integration/
-  docs/
-  Dockerfile
-  docker-compose.yml
-  README.md
+docs/
+scripts/
+Dockerfile
+README.md
 ```
 
 ## Concepts importants
@@ -181,13 +181,68 @@ connecteurs réels.
 Limite connue MVP : cette protection SSRF reste basique et devra être durcie (allowlist,
 résolution DNS contrôlée, protections réseau infra) avant production.
 
-## Outils MCP prévus
+## Outils MCP
 
-- `search_items`
-- `get_item`
-- `resolve_manifest`
-- `open_in_mirador`
-- `list_sources`
+La couche MCP est implémentée dans `app/backend/app/mcp/`. Elle ne duplique
+aucune logique métier : chaque outil est un wrapper minimal autour des
+services déjà utilisés par l'API REST (specs §13).
+
+### Outils exposés
+
+- `search_items(query, sources?, filters?, page?, page_size?)`
+- `get_item(global_id)`
+- `resolve_manifest(source, source_item_id, record_url?)`
+- `open_in_mirador(manifest_urls, workspace?)`
+- `list_sources()`
+
+### Ressources MCP
+
+- `clafoutis://sources` — snapshot read-only des sources enregistrées
+- `clafoutis://item/{global_id}` — item normalisé par identifiant global
+
+### Prompt MCP
+
+- `find_heritage_items(topic, sources?, iiif_only?)` — prompt réutilisable
+  guidant le modèle à lancer une recherche et résumer les résultats.
+
+### Lancement du serveur MCP
+
+Deux transports sont disponibles. Choisir selon le client :
+
+```bash
+pip install -e '.[mcp]'
+
+# stdio — pour les clients desktop (Claude Desktop, etc.)
+clafoutis-mcp
+
+# Streamable HTTP — pour les déploiements hébergés (HF Space, K8s, etc.)
+CLAFOUTIS_MCP_HOST=0.0.0.0 CLAFOUTIS_MCP_PORT=8765 clafoutis-mcp-http
+```
+
+### Exemple d'intégration Claude Desktop
+
+```json
+{
+  "mcpServers": {
+    "clafoutis": {
+      "command": "clafoutis-mcp"
+    }
+  }
+}
+```
+
+### Exemple client Python
+
+Un client de démonstration est fourni :
+
+```bash
+python scripts/mcp_client_example.py --query "book of hours"
+```
+
+Le script lance le serveur en sous-processus, se connecte via stdio avec
+le SDK `mcp` officiel, liste les outils/ressources/prompts et exerce
+chaque surface. C'est la référence canonique pour écrire un client
+Clafoutis MCP dans n'importe quel agent.
 
 ## Installation locale
 
@@ -227,29 +282,35 @@ VITE_API_BASE_URL=http://localhost:8000 npm run dev
 
 Créer un fichier `.env` à partir de `.env.example`.
 
-Variables backend principales (préfixe `CLAFOUTIS_`) :
+Variables backend principales (préfixe `CLAFOUTIS_`). Les valeurs par défaut
+appliquées par le code sont le mode **live** pour tous les connecteurs ;
+les fixtures ne sont utilisées que (1) si un flag `*_USE_FIXTURES=true` est
+explicitement fourni, ou (2) en fallback après une erreur live.
 
 ```env
 CLAFOUTIS_DEBUG=false
 CLAFOUTIS_APP_HOST=0.0.0.0
 CLAFOUTIS_APP_PORT=7860
 CLAFOUTIS_REQUEST_TIMEOUT_SECONDS=8
+CLAFOUTIS_MAX_REQUEST_BODY_BYTES=65536
 CLAFOUTIS_CORS_ALLOW_ORIGINS=["http://localhost:5173"]
 
 CLAFOUTIS_SERVE_FRONTEND=true
 CLAFOUTIS_FRONTEND_DIST_DIR=app/frontend/dist
 
-CLAFOUTIS_GALLICA_USE_FIXTURES=true
-CLAFOUTIS_BODLEIAN_USE_FIXTURES=true
-CLAFOUTIS_EUROPEANA_USE_FIXTURES=true
+# Par défaut: false (mode live avec fallback fixtures). Mettre à true pour
+# forcer le mode fixtures, utile pour une démo hors-ligne stable.
+CLAFOUTIS_GALLICA_USE_FIXTURES=false
+CLAFOUTIS_BODLEIAN_USE_FIXTURES=false
+CLAFOUTIS_EUROPEANA_USE_FIXTURES=false
 CLAFOUTIS_EUROPEANA_API_KEY=
 
 # Hugging Face Spaces: HF_TOKEN est aussi accepté en fallback pour Europeana
 # (utile si votre secret Space est nommé HF_TOKEN).
 
 CLAFOUTIS_ENABLE_CAPABILITY_PROBING=true
-CLAFOUTIS_CAPABILITY_PROBE_USE_FIXTURES=true
-CLAFOUTIS_CAPABILITY_PROBE_TIMEOUT_SECONDS=2
+CLAFOUTIS_CAPABILITY_PROBE_USE_FIXTURES=false
+CLAFOUTIS_CAPABILITY_PROBE_TIMEOUT_SECONDS=3
 CLAFOUTIS_CAPABILITY_PROBE_CACHE_TTL_SECONDS=300
 ```
 
@@ -407,14 +468,14 @@ Statut actuel : en cours de développement.
 
 ## Priorité actuelle
 
-- [ ] Backend socle
-- [ ] Frontend socle
-- [ ] Intégration Mirador
-- [ ] Import manuel
-- [ ] Connecteur Gallica
-- [ ] Connecteurs Bodleian et Europeana
-- [ ] MCP
-- [ ] Docker / déploiement HF Spaces
+- [x] Backend socle
+- [x] Frontend socle
+- [x] Intégration Mirador
+- [x] Import manuel
+- [x] Connecteur Gallica
+- [x] Connecteurs Bodleian et Europeana
+- [x] MCP
+- [x] Docker / déploiement HF Spaces
 
 ## Documentation
 

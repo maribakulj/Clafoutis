@@ -4,22 +4,19 @@ from app.config.settings import settings
 from app.connectors.gallica import GallicaConnector
 
 
-def test_gallica_search_returns_normalized_items_in_fixture_mode() -> None:
-    original = settings.gallica_use_fixtures
-    settings.gallica_use_fixtures = True
-    try:
-        connector = GallicaConnector()
-        response = asyncio.run(connector.search(query="dante", filters={}, page=1, page_size=10))
+def test_gallica_search_returns_normalized_items_in_fixture_mode(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "gallica_use_fixtures", True)
 
-        assert response.results
-        first = response.results[0]
-        assert first.source == "gallica"
-        assert first.id.startswith("gallica:")
-        assert first.record_url is not None
-        assert first.manifest_url is not None
-        assert first.has_iiif_manifest is True
-    finally:
-        settings.gallica_use_fixtures = original
+    connector = GallicaConnector()
+    response = asyncio.run(connector.search(query="dante", filters={}, page=1, page_size=10))
+
+    assert response.results
+    first = response.results[0]
+    assert first.source == "gallica"
+    assert first.id.startswith("gallica:")
+    assert first.record_url is not None
+    assert first.manifest_url is not None
+    assert first.has_iiif_manifest is True
 
 
 def test_gallica_resolve_manifest_from_record_url() -> None:

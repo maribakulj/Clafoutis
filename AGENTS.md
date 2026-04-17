@@ -51,10 +51,10 @@ app/
   tests/
     unit/
     integration/
-  docs/
-  Dockerfile
-  docker-compose.yml
-  README.md
+docs/
+scripts/
+Dockerfile
+README.md
 ```
 
 ## Technologies cibles
