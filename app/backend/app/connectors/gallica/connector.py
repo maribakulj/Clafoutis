@@ -7,19 +7,17 @@ import time
 import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus
 
+import defusedxml.ElementTree as SafeET
+
 from app.config.settings import settings
 from app.connectors.base import BaseConnector, FixtureConnectorMixin
 from app.connectors.gallica.fixtures import FIXTURE_GALLICA_RECORDS
 from app.models.normalized_item import NormalizedItem
 from app.models.search_models import PartialFailure, SearchResponse
 from app.models.source_models import SourceCapabilities
+from app.utils.error_sanitizer import sanitize_error_message
 from app.utils.http_client import build_async_client
 from app.utils.ids import make_global_id
-
-try:
-    import defusedxml.ElementTree as SafeET
-except ImportError:  # pragma: no cover
-    SafeET = ET  # type: ignore[misc]
 
 logger = logging.getLogger(__name__)
 
@@ -41,44 +39,61 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
         page_size: int,
     ) -> SearchResponse:
         start = time.perf_counter()
-        needs_local_pagination = False
+
+        if settings.gallica_use_fixtures:
+            return self._fixture_search_response(query, page, page_size, start, partial=[])
+
         try:
             records = await self._fetch_search_records(query=query, page=page, page_size=page_size)
             items = [self._map_record(record, index) for index, record in enumerate(records)]
-            partial: list[PartialFailure] = []
         except Exception as exc:
             logger.warning("Gallica live search failed, using fixtures: %s", exc)
-            needs_local_pagination = True
-            records = self._search_fixtures(query, FIXTURE_GALLICA_RECORDS)
-            items = [
-                self._map_fixture_record(
-                    r, i,
-                    default_institution=self._DEFAULT_INSTITUTION,
-                    manifest_url_override=self._manifest_from_ark(str(r["source_item_id"])),
-                )
-                for i, r in enumerate(records)
-            ]
             partial = [PartialFailure(
                 source=self.name, status="degraded",
-                error=f"live_gallica_unavailable: {exc}",
+                error=f"live_gallica_unavailable: {sanitize_error_message(exc)}",
             )]
+            return self._fixture_search_response(query, page, page_size, start, partial=partial)
 
         return self._build_search_response(
             query=query, page=page, page_size=page_size,
+            items=items, partial_failures=[],
+            needs_local_pagination=False, start_time=start,
+        )
+
+    def _fixture_search_response(
+        self,
+        query: str,
+        page: int,
+        page_size: int,
+        start: float,
+        partial: list[PartialFailure],
+    ) -> SearchResponse:
+        records = self._search_fixtures(query, FIXTURE_GALLICA_RECORDS)
+        items = [
+            self._map_fixture_record(
+                r, i,
+                default_institution=self._DEFAULT_INSTITUTION,
+                manifest_url_override=self._manifest_from_ark(str(r["source_item_id"])),
+            )
+            for i, r in enumerate(records)
+        ]
+        return self._build_search_response(
+            query=query, page=page, page_size=page_size,
             items=items, partial_failures=partial,
-            needs_local_pagination=needs_local_pagination, start_time=start,
+            needs_local_pagination=True, start_time=start,
         )
 
     async def get_item(self, source_item_id: str) -> NormalizedItem | None:
-        try:
-            records = await self._fetch_search_records(
-                query=f'ark all "{source_item_id}"',
-                page=1, page_size=1, raw_query=True,
-            )
-            if records:
-                return self._map_record(records[0], 0)
-        except Exception as exc:
-            logger.warning("Gallica live get_item failed for %s: %s", source_item_id, exc)
+        if not settings.gallica_use_fixtures:
+            try:
+                records = await self._fetch_search_records(
+                    query=f'ark all "{source_item_id}"',
+                    page=1, page_size=1, raw_query=True,
+                )
+                if records:
+                    return self._map_record(records[0], 0)
+            except Exception as exc:
+                logger.warning("Gallica live get_item failed for %s: %s", source_item_id, exc)
 
         return self._get_fixture_item(
             source_item_id, FIXTURE_GALLICA_RECORDS,
@@ -102,6 +117,8 @@ class GallicaConnector(FixtureConnectorMixin, BaseConnector):
         return self._manifest_from_ark(ark) if ark else None
 
     async def healthcheck(self) -> dict[str, str]:
+        if settings.gallica_use_fixtures:
+            return {"status": "ok", "mode": "fixtures"}
         try:
             params_query = quote_plus('dc.title all "test"')
             url = (

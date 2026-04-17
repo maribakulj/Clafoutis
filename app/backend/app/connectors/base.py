@@ -122,17 +122,23 @@ class FixtureConnectorMixin:
         start_time: float,
     ) -> SearchResponse:
         """Build SearchResponse with optional local pagination."""
+        total = len(items)
         if needs_local_pagination:
             start_index = (page - 1) * page_size
             page_items = items[start_index : start_index + page_size]
+            has_next = start_index + page_size < total
         else:
             page_items = items
+            # Live mode: the source already applied pagination, so we can only
+            # heuristically say "maybe more if it filled the page".
+            has_next = len(page_items) >= page_size
 
         return SearchResponse(
             query=query,
             page=page,
             page_size=page_size,
-            total_estimated=len(items),
+            total_estimated=total,
+            has_next_page=has_next,
             results=page_items,
             sources_used=[self.name],
             partial_failures=partial_failures,

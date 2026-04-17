@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
 from urllib.parse import urlencode
 
-try:
-    import defusedxml.ElementTree as SafeET
-except ImportError:
-    SafeET = ET
+import defusedxml.ElementTree as SafeET
 
 from app.config.settings import settings
 from app.models.source_models import RuntimeCapabilities

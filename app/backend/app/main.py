@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.router import api_router
 from app.config.settings import settings
 from app.models.error_models import ErrorResponse
+from app.utils.error_sanitizer import sanitize_error_message
 from app.utils.errors import AppError, BadRequestError, NotFoundError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -65,17 +66,19 @@ def create_app() -> FastAPI:
 
     @application.exception_handler(BadRequestError)
     async def handle_bad_request(_: Request, exc: BadRequestError) -> JSONResponse:
-        payload = ErrorResponse(error="bad_request", details=str(exc)).model_dump()
+        payload = ErrorResponse(error="bad_request", details=sanitize_error_message(exc)).model_dump()
         return JSONResponse(status_code=400, content=payload)
 
     @application.exception_handler(NotFoundError)
     async def handle_not_found(_: Request, exc: NotFoundError) -> JSONResponse:
-        payload = ErrorResponse(error="not_found", details=str(exc)).model_dump()
+        payload = ErrorResponse(error="not_found", details=sanitize_error_message(exc)).model_dump()
         return JSONResponse(status_code=404, content=payload)
 
     @application.exception_handler(AppError)
     async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
-        payload = ErrorResponse(error="application_error", details=str(exc)).model_dump()
+        payload = ErrorResponse(
+            error="application_error", details=sanitize_error_message(exc)
+        ).model_dump()
         return JSONResponse(status_code=500, content=payload)
 
     if settings.serve_frontend:

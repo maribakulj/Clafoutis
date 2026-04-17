@@ -11,6 +11,7 @@ from app.connectors.europeana.fixtures import FIXTURE_EUROPEANA_RECORDS
 from app.models.normalized_item import NormalizedItem
 from app.models.search_models import PartialFailure, SearchResponse
 from app.models.source_models import SourceCapabilities
+from app.utils.error_sanitizer import sanitize_error_message
 from app.utils.http_client import build_async_client
 from app.utils.ids import make_global_id
 
@@ -35,28 +36,43 @@ class EuropeanaConnector(FixtureConnectorMixin, BaseConnector):
     ) -> SearchResponse:
         start = time.perf_counter()
 
+        if settings.europeana_use_fixtures:
+            return self._fixture_search_response(query, page, page_size, start, partial=[])
+
         try:
             records = await self._fetch_live_search_records(query=query, page=page, page_size=page_size)
             items = [self._map_live_record(r, i) for i, r in enumerate(records)]
-            partial: list[PartialFailure] = []
-            needs_local_pagination = False
         except Exception as exc:
             logger.warning("Europeana live search failed, using fixtures: %s", exc)
-            records = self._search_fixtures(query, FIXTURE_EUROPEANA_RECORDS)
-            items = [
-                self._map_fixture_record(r, i, default_institution=self._DEFAULT_INSTITUTION)
-                for i, r in enumerate(records)
-            ]
             partial = [PartialFailure(
                 source=self.name, status="degraded",
-                error=f"live_europeana_unavailable: {exc}",
+                error=f"live_europeana_unavailable: {sanitize_error_message(exc)}",
             )]
-            needs_local_pagination = True
+            return self._fixture_search_response(query, page, page_size, start, partial=partial)
 
         return self._build_search_response(
             query=query, page=page, page_size=page_size,
+            items=items, partial_failures=[],
+            needs_local_pagination=False, start_time=start,
+        )
+
+    def _fixture_search_response(
+        self,
+        query: str,
+        page: int,
+        page_size: int,
+        start: float,
+        partial: list[PartialFailure],
+    ) -> SearchResponse:
+        records = self._search_fixtures(query, FIXTURE_EUROPEANA_RECORDS)
+        items = [
+            self._map_fixture_record(r, i, default_institution=self._DEFAULT_INSTITUTION)
+            for i, r in enumerate(records)
+        ]
+        return self._build_search_response(
+            query=query, page=page, page_size=page_size,
             items=items, partial_failures=partial,
-            needs_local_pagination=needs_local_pagination, start_time=start,
+            needs_local_pagination=True, start_time=start,
         )
 
     async def get_item(self, source_item_id: str) -> NormalizedItem | None:
@@ -89,6 +105,8 @@ class EuropeanaConnector(FixtureConnectorMixin, BaseConnector):
         return None
 
     async def healthcheck(self) -> dict[str, str]:
+        if settings.europeana_use_fixtures:
+            return {"status": "ok", "mode": "fixtures"}
         if not settings.europeana_api_key:
             return {"status": "error", "mode": "live", "reason": "missing_api_key"}
 
